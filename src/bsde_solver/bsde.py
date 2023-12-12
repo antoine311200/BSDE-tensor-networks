@@ -4,14 +4,6 @@ import numpy as np
 
 class BackwardSDE:
     """This class is used to represent a Partial Derivative Equation as a Backward Stochastic Differential Equation (BSDE).
-
-    That is for a given parabolic PDE of the form:
-    $$(\partial_t + L) V(x, t) + h(x, t, V(x, t), (\sigma^\intercal \Nabla V)(x, t)) = 0$$
-    with
-    $$L = \frac{1}{2} \sum_{i, j = 1}^d a_{i, j}(x, t) \partial_{x_i} \partial_{x_j} + \sum_{i = 1}^d b_i(x, t) \partial_{x_i}$$
-    and $a_{i, j} = ((\sigma \sigma^\intercal)_{i, j})$.
-
-    The terminal condition is given by $V(x, T) = g(x)$.
     """
 
     def __init__(self, X0, delta_t, T) -> None:
@@ -47,6 +39,8 @@ class BackwardSDE:
         x = np.zeros((batch_size, self.N + 1, self.dim))
         xi = np.random.normal(size=(batch_size, self.N, self.dim))
 
+        x[:, 0] = self.X0
+
         for n in range(self.N):
             x[:, n + 1] = x[:, n] + \
                 self.b(x[:, n], n * self.delta_t) * self.delta_t + \
@@ -74,3 +68,48 @@ class BackwardSDE:
     #             np.sum(self.Z[:, n] * np.sqrt(self.delta_t) * xi[:, n], axis=1)
 
     #     return y
+
+
+class BlackScholes(BackwardSDE):
+
+        def __init__(self, X0, delta_t, T, r, sigma, S0) -> None:
+            super().__init__(X0, delta_t, T)
+
+            self.r = r
+            self.sigma_ = sigma
+            self.S0 = S0
+
+        def b(self, x, t):
+            return 0
+
+        def sigma(self, x, t):
+            return self.sigma_ * x
+
+        def h(self, x, t, y, z):
+            return -self.r * (y - z.T @ x)
+
+        def g(self, x):
+            return np.linalg.norm(x, axis=1) ** 2
+
+class MultiAssetGaussian(BackwardSDE):
+
+    def __init__(self, X0, delta_t, T, r, sigma, rho, mu, S0) -> None:
+        super().__init__(X0, delta_t, T)
+
+        self.r = r
+        self.sigma = sigma
+        self.rho = rho
+        self.mu = mu
+        self.S0 = S0
+
+    def b(self, x, t):
+        return self.r * x
+
+    def sigma(self, x, t):
+        return self.sigma * x
+
+    def h(self, x, t, y, z):
+        return -self.r * y
+
+    def g(self, x):
+        return np.sum(self.S0 * x, axis=1)
