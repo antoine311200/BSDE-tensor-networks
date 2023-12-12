@@ -18,6 +18,9 @@ class BackwardSDE:
         self.dim = X0.shape[1]
         self.N = int(ceil(T / delta_t))
 
+        self.delta_t = delta_t
+        self.time = np.linspace(0, T, self.N + 1)
+
     def b(self, x, t):
         pass
 
@@ -30,7 +33,7 @@ class BackwardSDE:
     def g(self, x):
         pass
 
-    def X(self, batch_size: int = 64, seed: int = 42):
+    def X(self, batch_size: int = 64):
         """Generate the backward sequence of X_t for t in [0, T] with a given time step.
 
         X_n+1 = X_n + b(X_n, t_n) * delta_t + sigma(X_n, t_n) * xi_n+1 * (W_{t_{n+1}} - W_{t_n})
@@ -39,7 +42,7 @@ class BackwardSDE:
             batch_size (int, optional): Batch size. Defaults to 64.
             seed (int, optional): A random seed. Defaults to 42.
         """
-        np.random.seed(seed)
+        # np.random.seed(seed)
 
         x = np.zeros((batch_size, self.N + 1, self.dim))
         xi = np.random.normal(size=(batch_size, self.N, self.dim))
@@ -51,23 +54,23 @@ class BackwardSDE:
 
         return x
 
-    def Y(self, batch_size: int = 64, seed: int = 42):
-        """Generate the backward sequence of Y_t for t in [0, T] with a given time step.
+    # def Y(self, X, batch_size: int = 64, seed: int = 42):
+    #     """Generate the backward sequence of Y_t for t in [0, T] with a given time step.
 
-        Y_n = Y_n+1 - h(X_n, t_n, Y_n, Z_n) * delta_t - Z_n * (W_{t_{n+1}} - W_{t_n})
+    #     Y_n = Y_n+1 - h(X_n, t_n, Y_n, Z_n) * delta_t - Z_n * (W_{t_{n+1}} - W_{t_n})
 
-        Args:
-            batch_size (int, optional): Batch size. Defaults to 64.
-            seed (int, optional): A random seed. Defaults to 42.
-        """
-        np.random.seed(seed)
+    #     Args:
+    #         batch_size (int, optional): Batch size. Defaults to 64.
+    #         seed (int, optional): A random seed. Defaults to 42.
+    #     """
+    #     np.random.seed(seed)
 
-        y = np.zeros((batch_size, self.N + 1))
-        xi = np.random.normal(size=(batch_size, self.N, self.dim))
+    #     y = np.zeros((batch_size, self.N + 1))
+    #     xi = np.random.normal(size=(batch_size, self.N, self.dim))
 
-        for n in range(self.N - 1, -1, -1):
-            y[:, n] = y[:, n + 1] - \
-                self.h(self.X[:, n], n * self.delta_t, y[:, n + 1], self.Z[:, n]) * self.delta_t - \
-                np.sum(self.Z[:, n] * np.sqrt(self.delta_t) * xi[:, n], axis=1)
+    #     for n in range(self.N - 1, -1, -1):
+    #         y[:, n] = y[:, n + 1] - \
+    #             self.h(self.X[:, n], n * self.delta_t, y[:, n + 1], self.Z[:, n]) * self.delta_t - \
+    #             np.sum(self.Z[:, n] * np.sqrt(self.delta_t) * xi[:, n], axis=1)
 
-        return y
+    #     return y
