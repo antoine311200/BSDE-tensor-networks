@@ -68,19 +68,22 @@ class TensorTrain:
         else:
             raise ValueError("orthogonality must be either 'left' or 'right'")
 
-    def orthonormalize(self, orthogonality="right"):
+    def orthonormalize(self, start=0, stop=-1, orthogonality="right"):
         """Orthonormalize the tensor train using a series of QR decompositions.
 
         This method is similar to the .fill method but the cores are used directly.
 
         Args:
+            start (int, optional): Index of the first core to orthonormalize. Defaults to 0.
+            stop (int, optional): Index of the last core to orthonormalize. Defaults to -1.
             orthogonality (str, optional): Orthogonality of the tensor train. Defaults to "right".
 
         Raises:
             ValueError: If the orthogonality is not either "left" or "right".
         """
+        if stop == -1: stop = len(self.shape) - 1
         if orthogonality == "left":
-            for k in range(len(self.shape) - 1):
+            for k in range(start, stop):
                 L = matricized(self.cores[k], mode="left")
                 R = matricized(self.cores[k+1], mode="right")
 
@@ -90,7 +93,7 @@ class TensorTrain:
                 self.cores[k] = tensorized(V, shape=self.cores[k].shape)
                 self.cores[k+1] = tensorized(W, shape=self.cores[k+1].shape)
         elif orthogonality == "right":
-            for k in range(len(self.shape) - 1, 0, -1):
+            for k in range(stop, start-1, -1):
                 L = matricized(self.cores[k-1], mode="left")
                 R = matricized(self.cores[k], mode="right")
 
@@ -106,3 +109,10 @@ class TensorTrain:
         """Fill the tensor train with random values."""
         for i in range(len(self.shape)):
             self.cores.append(np.random.normal(size=(self.rank[i], self.shape[i], self.rank[i + 1])))
+
+    def copy(self):
+        """Copy the tensor train."""
+        tt = TensorTrain(self.shape, self.rank)
+        tt.cores = self.cores.copy()
+
+        return tt
