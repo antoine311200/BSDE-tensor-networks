@@ -3,14 +3,52 @@ import numpy as np
 from bsde_solver.utils import matricized, tensorized
 
 class TensorTrain:
+    """Class dedicated to the tensor train format of a tensor also referred to as Matrix Product State (MPS).
+
+    The goal of this class is to provide a simple interface to manipulate tensors in the tensor train format.
+    That is, creating a random tensor train or decomposing a given tensor into a tensor train.
+    Some basic operations are also implemented such as the orthonormalization of a tensor train.
+    """
 
     def __init__(self, shape, rank):
+        """Initialize a tensor train with a given shape and rank.
+
+        Given a shape of indices and the TT ranks, a tensor train is abstractly initialized.
+        Its diagram is given by:
+
+                   (s1)     (s2)     (s3)     (s4)
+                    |        |        |        |
+            --(r1)--O--(r2)--O--(r3)--O--(r4)--O--(r5)--
+
+        for shape = [s1, s2, s3, s4] and rank = [r1, r2, r3, r4, r5].
+        By convention, the first and last ranks are equal to 1 in most cases.
+
+        Args:
+            shape (list): Shape of the tensor train.
+            rank (list): Rank of the tensor train.
+        """
         self.shape = shape
         self.rank = rank
 
         self.cores = []
 
     def fill(self, tensor, orthogonality="left"):
+        """Fill the tensor train with a given tensor by performing a TT-SVD algorithm.
+
+        The principle of the TT-SVD algorithm is to decompose a tensor into a tensor train using
+        a series of SVD decompositions starting from the left or right side of the tensor.
+        This will give a canonical representation of the TT with left or right orthogonality.
+
+        For optimization purposes, the TT-SVD algorithm is implemented using the QR decomposition instead of the SVD.
+        This allows to reduce the complexity of the algorithm by not computing the singular values.
+
+        Args:
+            tensor (np.ndarray): Tensor to decompose into a tensor train.
+            orthogonality (str, optional): Orthogonality of the tensor train. Defaults to "left".
+
+        Raises:
+            ValueError: If the orthogonality is not either "left" or "right".
+        """
         T = tensor
 
         if orthogonality == "left":
@@ -31,6 +69,16 @@ class TensorTrain:
             raise ValueError("orthogonality must be either 'left' or 'right'")
 
     def orthonormalize(self, orthogonality="right"):
+        """Orthonormalize the tensor train using a series of QR decompositions.
+
+        This method is similar to the .fill method but the cores are used directly.
+
+        Args:
+            orthogonality (str, optional): Orthogonality of the tensor train. Defaults to "right".
+
+        Raises:
+            ValueError: If the orthogonality is not either "left" or "right".
+        """
         if orthogonality == "left":
             for k in range(len(self.shape) - 1):
                 L = matricized(self.cores[k], mode="left")
@@ -55,5 +103,6 @@ class TensorTrain:
             raise ValueError("orthogonality must be either 'left' or 'right'")
 
     def random(self):
+        """Fill the tensor train with random values."""
         for i in range(len(self.shape)):
             self.cores.append(np.random.normal(size=(self.rank[i], self.shape[i], self.rank[i + 1])))
