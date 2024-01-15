@@ -33,7 +33,7 @@ class TensorNetwork:
         }
         return TensorNetwork(new_cores)
 
-    def contract(self, tn: TensorNetwork = None, indices: list[str] = None) -> TensorNetwork:
+    def contract(self, tn: TensorNetwork = None, indices: list[str] = None) -> TensorCore:
         struct = []
         for core in self.cores.values():
             struct.append(core)
@@ -56,11 +56,8 @@ class TensorNetwork:
         struct.append(unique_indices)
         result = contract(*struct)
 
-        # print(struct[1::2])
-        # print(unique_indices)
-
         core = TensorCore(result, indices=unique_indices)
-        return TensorNetwork([core])
+        return core
 
     def rename(self, old_name: str, new_name: str):
         if "*" in old_name: old_name = old_name.replace("*", "(\d+)")

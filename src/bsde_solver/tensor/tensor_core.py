@@ -39,8 +39,11 @@ class TensorCore(np.ndarray):
     @staticmethod
     def _generate_indices(shape_info):
         return tuple(f"axis_{i}" for i in range(len(shape_info)))
-    
-    # def squeeze
+
+    def like(input_array, like_core: 'TensorCore' = None):
+        return TensorCore(input_array.reshape(like_core.shape),
+            indices=like_core.indices, name=like_core.name
+        )
 
     def unfold(self, *args, **kwargs):
 
