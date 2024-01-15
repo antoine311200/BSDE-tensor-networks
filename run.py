@@ -30,7 +30,7 @@ def main():
     solver = NeuralNetworkSolver(Xi, bsde)
 
     # Train the solver
-    solver.train(num_iterations)
+    solver.train(num_iterations, batch_size)
 
     # Generate the data
     # X = bsde.X(batch_size)
