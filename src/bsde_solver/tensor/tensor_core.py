@@ -1,4 +1,7 @@
+import re
 import numpy as np
+
+from copy import deepcopy
 
 class TensorCore(np.ndarray):
     """Create a tensor core object as a subclass of np.ndarray.
@@ -40,9 +43,9 @@ class TensorCore(np.ndarray):
     def _generate_indices(shape_info):
         return tuple(f"axis_{i}" for i in range(len(shape_info)))
 
-    def like(input_array, like_core: 'TensorCore' = None):
+    def like(input_array, like_core: 'TensorCore' = None, name=None):
         return TensorCore(input_array.reshape(like_core.shape),
-            indices=like_core.indices, name=like_core.name
+            indices=like_core.indices, name=like_core.name if name is None else name
         )
 
     def unfold(self, *args, **kwargs):
@@ -108,3 +111,18 @@ class TensorCore(np.ndarray):
 
     def randomize(self):
         self[:] = (np.random.rand(*self.shape_info) - 0.5) * 2
+
+    def rename(self, old_name: str, new_name: str, inplace: bool = True):
+        if "*" in old_name: old_name = old_name.replace("*", "(\d+)")
+        new_indices = []
+        for idx in self.indices:
+            new_indices.append(re.sub(
+                old_name.replace('*', '(.*)'),
+                new_name.replace('*', r'\1'),
+                idx
+            ))
+
+        if inplace:
+            self.indices = tuple(new_indices)
+        else:
+            return TensorCore(deepcopy(self), indices=tuple(new_indices), name=self.name)

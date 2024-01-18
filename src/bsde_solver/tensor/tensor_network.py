@@ -10,17 +10,19 @@ from bsde_solver.tensor.tensor_core import TensorCore
 
 class TensorNetwork:
 
-    def __init__(self, cores: list[TensorCore] | dict[str, TensorCore]):
+    def __init__(self, cores: list[TensorCore] | dict[str, TensorCore], names: list[str] = None):
         """Initialize a tensor network with a given list of tensor cores."""
         if isinstance(cores, dict):
             self.cores = cores
         else:
             self.cores = {}
             for i, core in enumerate(cores):
-                self.add_core(core)
+                if names: name = names[i]
+                elif core.name: name = core.name
+                else: name = f"core_{len(self.cores)}"
+                self.add_core(core, name)
 
-    def add_core(self, core: TensorCore):
-        name = core.name if core.name is not None else f"core_{len(self.cores)}"
+    def add_core(self, core: TensorCore, name: str = None):
         if name in self.cores:
             raise ValueError(f"Tensor core with name {name} already exists.")
         core.name = name
@@ -33,13 +35,16 @@ class TensorNetwork:
         }
         return TensorNetwork(new_cores)
 
-    def contract(self, tn: TensorNetwork = None, indices: list[str] = None) -> TensorCore:
+    def contract(self, tn:  TensorNetwork | TensorCore = None, indices: list[str] = None) -> TensorCore:
         struct = []
         for core in self.cores.values():
             struct.append(core)
             struct.append(core.indices)
 
-        tn_cores = tn.cores.values() if tn is not None else []
+        # tn_cores = tn.cores.values() if tn is not None else []
+        if isinstance(tn, TensorNetwork): tn_cores = tn.cores.values()
+        elif isinstance(tn, TensorCore): tn_cores = [tn]
+        else: tn_cores = []
         for core in tn_cores:
             struct.append(core)
             struct.append(core.indices)
@@ -59,20 +64,22 @@ class TensorNetwork:
         core = TensorCore(result, indices=unique_indices)
         return core
 
-    def rename(self, old_name: str, new_name: str):
-        if "*" in old_name: old_name = old_name.replace("*", "(\d+)")
-        for _, core in self.cores.items():
-            new_indices = []
-            for idx in core.indices:
-                new_indices.append(re.sub(
-                    old_name.replace('*', '(.*)'),
-                    new_name.replace('*', r'\1'),
-                    idx
-                ))
-            core.indices = tuple(new_indices)
+    def rename(self, old_name: str, new_name: str, inplace: bool = True):
+        cores = self.cores if inplace else deepcopy(self.cores)
 
-        return self
+        for _, core in cores.items():
+            core.rename(old_name, new_name, inplace=True)
+            # if "*" in old_name: old_name = old_name.replace("*", "(\d+)")
+            # new_indices = []
+            # for idx in core.indices:
+            #     new_indices.append(re.sub(
+            #         old_name.replace('*', '(.*)'),
+            #         new_name.replace('*', r'\1'),
+            #         idx
+            #     ))
+            # core.indices = tuple(new_indices)
 
+        return self if inplace else TensorNetwork(cores)
 
     def copy(self):
         return TensorNetwork(deepcopy(self.cores))
