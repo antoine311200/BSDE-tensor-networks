@@ -85,6 +85,36 @@ class TensorTrain(TensorNetwork):
         else:
             raise ValueError("orthogonality must be either 'left' or 'right'")
 
+    @staticmethod
+    def from_tensor(tensor: np.ndarray, ranks: list[int]):
+        """Create a tensor train from a given tensor.
+
+        Args:
+            tensor (np.ndarray): Tensor to create the tensor train from.
+            orthogonality (str, optional): Orthogonality of the tensor train. Defaults to "right".
+
+        Returns:
+            TensorTrain: Tensor train created from the given tensor.
+        """
+        shape = tensor.shape
+        order = len(shape)
+
+        tt = TensorTrain(shape, ranks)
+
+        for i in range(order-1):
+            L = tensor.reshape(ranks[i]*shape[i], -1)
+            Q, R = np.linalg.qr(L)
+
+            Q = Q[:, :ranks[i+1]]
+            R = R[:ranks[i+1], :]
+
+            tensor = R
+            tt.cores[f"core_{i}"] = TensorCore.like(Q, tt.cores[f"core_{i}"])
+
+        tt.cores[f"core_{order-1}"] = TensorCore.like(tensor, tt.cores[f"core_{order-1}"])
+
+        return tt
+
     def randomize(self):
         for core in self.cores.values():
             core.randomize()
