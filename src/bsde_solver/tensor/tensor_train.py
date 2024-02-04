@@ -12,6 +12,26 @@ def left_unfold(core: TensorCore):
 def right_unfold(core: TensorCore):
     return core.unfold(0, (1, 2))
 
+class BatchTensorTrain(TensorNetwork):
+    """Create a batch tensor train object as a subclass of TensorNetwork."""
+
+    def __init__(self, batch_size: int, shape: list[int], ranks: list[int]):
+        """Initialize a batch tensor train with a given batch size, shape and ranks."""
+        cores = []
+        for i in range(len(shape)):
+            core = TensorCore(
+                np.zeros((batch_size, ranks[i], shape[i], ranks[i+1])),
+                indices=(f"batch", f"r_{i}", f"m_{i+1}", f"r_{i+1}")
+            )
+            cores.append(core)
+
+        super().__init__(cores)
+
+        self.batch_size = batch_size
+        self.shape = shape
+        self.ranks = ranks
+        self.order = len(shape)
+
 class TensorTrain(TensorNetwork):
 
     def __init__(self, shape: list[int], ranks: list[int]):
