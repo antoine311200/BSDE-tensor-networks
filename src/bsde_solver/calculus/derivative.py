@@ -1,4 +1,3 @@
-from time import perf_counter
 import numpy as np
 
 from bsde_solver.tensor.tensor_train import TensorTrain, BatchTensorTrain
@@ -93,6 +92,8 @@ def batch_derivative(tt_batch: BatchTensorTrain, phis, dphis):
     return derivatives
 
 if __name__ == "__main__":
+    from time import perf_counter
+
     degree = 10
     num_assets = 5
 
