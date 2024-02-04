@@ -10,3 +10,6 @@ def matricized(core, mode="left"):
 
 def tensorized(core, shape):
     return core.reshape(shape)
+
+def flatten(lst):
+    return [item for sublist in lst for item in sublist]
