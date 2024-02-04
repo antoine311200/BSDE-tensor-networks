@@ -59,8 +59,7 @@ def scalar_ALS(X, b: float, n_iter=10, ranks=None):
 
 
 def linear_ALS(
-    A: Union[np.ndarray, TensorTrain],
-    b: Union[np.ndarray, TensorTrain],
+    b: list[TensorCore],
     n_iter=10,
     ranks=None,
 ):
@@ -76,18 +75,16 @@ def linear_ALS(
         ranks (list): List of ranks for the tensor train format.
     """
 
-    tt = TensorTrain(b.shape, ranks).randomize()
+    shape = b[0].shape * len(b)
+    tt = TensorTrain(shape, ranks).randomize()
     tt.orthonormalize(mode="right", start=1)
 
-    def get_idx(j):
-        if j == 0: indices = (b[j].indices[0], *tt[j].indices[1:])
-        elif j == tt.order - 1: indices = (*tt[j].indices[:-1], b[j].indices[2])
-        else: indices = tt[j].indices
-        return indices
+    b = TensorNetwork(cores=b)
 
     def micro_optimization(tt, j):
         P = retraction_operator(tt, j)
-        V = TensorNetwork(cores=[P, b], names=["P", "b"]).contract(indices=get_idx(j))
+        V = TensorNetwork(cores=[P, b], names=["P", "b"]).contract(indices=(f"r_{j}", f"m_{j+1}", f"r_{j+1}"))
+        print(V)
         return V
 
     for i in range(n_iter):
