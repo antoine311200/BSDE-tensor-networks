@@ -118,6 +118,7 @@ class TensorTrain(TensorNetwork):
     def randomize(self):
         for core in self.cores.values():
             core.randomize()
+        return self
 
     def copy(self):
         tt = deepcopy(self)

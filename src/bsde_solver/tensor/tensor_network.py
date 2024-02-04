@@ -10,17 +10,23 @@ from bsde_solver.tensor.tensor_core import TensorCore
 
 class TensorNetwork:
 
-    def __init__(self, cores: list[TensorCore] | dict[str, TensorCore], names: list[str] = None):
+    def __init__(self, cores: list[TensorCore | TensorNetwork] | dict[str, TensorCore], names: list[str] = None):
         """Initialize a tensor network with a given list of tensor cores."""
         if isinstance(cores, dict):
             self.cores = cores
         else:
             self.cores = {}
             for i, core in enumerate(cores):
+                if core is None: continue
                 if names: name = names[i]
                 elif core.name: name = core.name
-                else: name = f"core_{len(self.cores)}"
-                self.add_core(core, name)
+                else: name = f"core_{i}"
+
+                if hasattr(core, 'cores'):
+                    for subname, core in core.cores.items():
+                        self.add_core(core, name+'_'+subname)
+                else:
+                    self.add_core(core, name)
 
     def add_core(self, core: TensorCore, name: str = None):
         if name in self.cores:
