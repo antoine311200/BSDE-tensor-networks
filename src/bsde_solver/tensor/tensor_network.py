@@ -47,7 +47,6 @@ class TensorNetwork:
             struct.append(core)
             struct.append(core.indices)
 
-        # tn_cores = tn.cores.values() if tn is not None else []
         if isinstance(tn, TensorNetwork): tn_cores = tn.cores.values()
         elif isinstance(tn, TensorCore): tn_cores = [tn]
         else: tn_cores = []
@@ -78,15 +77,6 @@ class TensorNetwork:
 
         for _, core in cores.items():
             core.rename(old_name, new_name, inplace=True)
-            # if "*" in old_name: old_name = old_name.replace("*", "(\d+)")
-            # new_indices = []
-            # for idx in core.indices:
-            #     new_indices.append(re.sub(
-            #         old_name.replace('*', '(.*)'),
-            #         new_name.replace('*', r'\1'),
-            #         idx
-            #     ))
-            # core.indices = tuple(new_indices)
 
         return self if inplace else TensorNetwork(cores)
 
