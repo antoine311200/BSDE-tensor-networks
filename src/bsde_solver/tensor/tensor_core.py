@@ -126,3 +126,5 @@ class TensorCore(np.ndarray):
             self.indices = tuple(new_indices)
         else:
             return TensorCore(deepcopy(self), indices=tuple(new_indices), name=self.name)
+
+        return self
