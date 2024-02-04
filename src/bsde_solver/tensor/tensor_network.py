@@ -41,7 +41,7 @@ class TensorNetwork:
         }
         return TensorNetwork(new_cores)
 
-    def contract(self, tn:  TensorNetwork | TensorCore = None, indices: list[str] = None) -> TensorCore:
+    def contract(self, tn:  TensorNetwork | TensorCore = None, indices: list[str] = None, batch: bool = False) -> TensorCore:
         struct = []
         for core in self.cores.values():
             struct.append(core)
@@ -63,6 +63,9 @@ class TensorNetwork:
             unique_indices = [e for e in indices if indices.count(e) == 1]
         else:
             unique_indices = indices
+
+        if batch:
+            unique_indices.append('batch')
 
         struct.append(unique_indices)
         result = contract(*struct)
