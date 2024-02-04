@@ -17,7 +17,7 @@ def scalar_ALS(X, b: float, n_iter=10, ranks=None):
 
     def micro_optimization(tt, j):
         P = retraction_operator(tt, j)
-        V = TensorNetwork(cores=[P, b], names=["P", "b"]).contract(indices=get_idx(j))
+        V = TensorNetwork(cores=[P, b], names=["P", "b"]).contract(indices=(f"r_{j}", f"m_{j+1}", f"r_{j+1}"))
         return V
 
     for i in range(n_iter):
