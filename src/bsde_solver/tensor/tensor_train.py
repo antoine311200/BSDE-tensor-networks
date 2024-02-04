@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import numpy as np
 
 from copy import deepcopy
@@ -31,6 +33,28 @@ class BatchTensorTrain(TensorNetwork):
         self.shape = shape
         self.ranks = ranks
         self.order = len(shape)
+
+    def dupplicate(self, batch_size: int, tensor_train: TensorTrain):
+        """Create a batch tensor train from a given tensor train by dupplicating the tensor train a given number of times.
+
+        Args:
+            batch_size (int): Number of times to dupplicate the tensor train.
+            tensor_train (TensorTrain): Tensor train to dupplicate.
+
+        Returns:
+            BatchTensorTrain: Batch tensor train created from the given tensor train.
+        """
+        batch_tt = BatchTensorTrain(batch_size, tensor_train.shape, tensor_train.ranks)
+        for i in range(batch_size):
+            for j in range(tensor_train.order):
+                batch_tt.cores[f"core_{j}"][i] = tensor_train.cores[f"core_{j}"]
+        return batch_tt
+
+    def randomize(self):
+        for core in self.cores.values():
+            core.randomize()
+        return self
+
 
 class TensorTrain(TensorNetwork):
 
