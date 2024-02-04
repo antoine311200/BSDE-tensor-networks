@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+[project]
+name = "bsde_solver"
+version = "0.0.1"
+authors = [
+  { name="Antoine Debouchage", email="antoine.debouchage@student-cs.fr" },
+  { name="Thomas Lemercier", email="thomas.lemercier@student-cs.fr" },
+]
+description = "CentraleSupélec x Crédit Agricole CIB - Research projet - High dimension PDEs resolution with tensor networks"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
