@@ -34,7 +34,7 @@ class BatchTensorTrain(TensorNetwork):
         self.ranks = ranks
         self.order = len(shape)
 
-    def dupplicate(self, batch_size: int, tensor_train: TensorTrain):
+    def dupplicate(batch_size: int, tensor_train: TensorTrain):
         """Create a batch tensor train from a given tensor train by dupplicating the tensor train a given number of times.
 
         Args:
