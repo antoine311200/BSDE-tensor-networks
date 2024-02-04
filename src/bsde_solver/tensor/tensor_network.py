@@ -43,9 +43,11 @@ class TensorNetwork:
 
     def contract(self, tn:  TensorNetwork | TensorCore = None, indices: list[str] = None, batch: bool = False) -> TensorCore:
         struct = []
+        all_indices = []
         for core in self.cores.values():
             struct.append(core)
             struct.append(core.indices)
+            all_indices += core.indices
 
         if isinstance(tn, TensorNetwork): tn_cores = tn.cores.values()
         elif isinstance(tn, TensorCore): tn_cores = [tn]
@@ -62,6 +64,15 @@ class TensorNetwork:
             unique_indices = [e for e in indices if indices.count(e) == 1]
         else:
             unique_indices = indices
+            # Check if there are indices that does not appear in the network
+            # if not, add them to the unique_indices
+            new_indices = [idx for idx in indices if idx not in all_indices]
+            if len(new_indices) > 0:
+                # Add new axis to the last core
+                if new_indices:
+                    for idx in new_indices:
+                        struct[-2] = struct[-2].expand_dims(-1, name=idx, inplace=False)
+                    struct[-1] = struct[-2].indices
 
         if batch:
             unique_indices.append('batch')
