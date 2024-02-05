@@ -13,3 +13,6 @@ def tensorized(core, shape):
 
 def flatten(lst):
     return [item for sublist in lst for item in sublist]
+
+
+batch_qr = np.vectorize(np.linalg.qr, signature='(m,n)->(m,p),(p,n)')
