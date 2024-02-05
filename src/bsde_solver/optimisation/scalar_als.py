@@ -9,35 +9,31 @@ def retraction_operator(tt, i):
     operator = tt.extract([f"core_{j}" for j in range(tt.order) if j != i])
     return operator
 
-def linear_ALS(
-    b: list[TensorCore],
-    n_iter=10,
-    ranks=None,
-):
-    """Alternating Least cheme for Tensor train format.
-
-    This implementation follows the work of Thorsten Rohwedder and Reinhold Schneider
-    in their paper "The Alternating Linear Scheme for Tensor Optimization in the Tensor Train Format", 2011.
-
-    Args:
-        A (TensorNetwork): Tensor network representing the linear operator.
-        b (TensorNetwork): Tensor network representing the right hand side.
-        n_iter (int): Number of iterations to perform.
-        ranks (list): List of ranks for the tensor train format.
-    """
-
-    shape = b[0].shape * len(b)
-    tt = TensorTrain(shape, ranks).randomize()
+def scalar_ALS(X, phis: list[TensorCore], b: float, n_iter=10, ranks=None):
+    tt = TensorTrain(X.shape, ranks).randomize()
     tt.orthonormalize(mode="right", start=1)
 
-    b = TensorNetwork(cores=b)
+    phis = TensorNetwork(cores=phis)
 
     def micro_optimization(tt, j):
         P = retraction_operator(tt, j)
-        V = TensorNetwork(cores=[P, b], names=["P", "b"]).contract(indices=(f"r_{j}", f"m_{j+1}", f"r_{j+1}"))
-        return V
+        V = TensorNetwork(cores=[P, phis], names=["P", "phi"]).contract(indices=(f"r_{j}", f"m_{j+1}", f"r_{j+1}"))
+        V_T = V.copy().rename("r_*", "s_*").rename("m_*", "n_*")
 
-    for i in range(n_iter):
+        # The operator A can be non invertible, so we need to use some regularization
+        A = TensorNetwork(cores=[V_T, V], names=["V_T", "V"]).contract()
+        A = A.unfold((f"s_{j}", f"n_{j+1}", f"s_{j+1}"), (f"r_{j}", f"m_{j+1}", f"r_{j+1}"))
+        V = V.unfold((f"r_{j}", f"m_{j+1}", f"r_{j+1}"))
+
+        # Add regularization
+        A += 0.1 * np.eye(A.shape[0])
+        V *= b
+
+        X = np.linalg.solve(A.view(np.ndarray), V.view(np.ndarray))
+        X = TensorCore.like(X, tt.cores[f"core_{j}"])
+        return X
+
+    for _ in range(n_iter):
         # Left half sweep
         for j in range(tt.order - 1):
             # Micro optimization
