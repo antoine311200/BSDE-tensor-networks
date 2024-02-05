@@ -107,6 +107,18 @@ class BatchTensorTrain(TensorNetwork):
                 batch_tt.cores[f"core_{j}"][i] = tensor_train.cores[f"core_{j}"]
         return batch_tt
 
+    def unbatch(self):
+        """Convert a BatchTensorTrain to a list of TensorTrain."""
+        tensor_trains = []
+        for i in range(self.batch_size):
+            tt = TensorTrain(self.shape, self.ranks)
+            for j in range(self.order):
+                indices = self.cores[f"core_{j}"].indices
+                indices = [index for index in indices if index != "batch"]
+                tt.cores[f"core_{j}"] = TensorCore(self.cores[f"core_{j}"][i], name=f"core_{j}", indices=indices)
+            tensor_trains.append(tt)
+        return tensor_trains
+
     def randomize(self):
         for core in self.cores.values():
             core.randomize()
