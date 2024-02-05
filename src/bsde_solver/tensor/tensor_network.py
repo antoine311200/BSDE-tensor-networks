@@ -75,6 +75,7 @@ class TensorNetwork:
                     struct[-1] = struct[-2].indices
 
         if batch:
+            unique_indices = list(set(unique_indices))
             unique_indices.append('batch')
 
         struct.append(unique_indices)
