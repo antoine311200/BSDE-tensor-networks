@@ -41,13 +41,14 @@ class TensorNetwork:
         }
         return TensorNetwork(new_cores)
 
-    def contract(self, tn:  TensorNetwork | TensorCore = None, indices: list[str] = None) -> TensorCore:
+    def contract(self, tn:  TensorNetwork | TensorCore = None, indices: list[str] = None, batch: bool = False) -> TensorCore:
         struct = []
+        all_indices = []
         for core in self.cores.values():
             struct.append(core)
             struct.append(core.indices)
+            all_indices += core.indices
 
-        # tn_cores = tn.cores.values() if tn is not None else []
         if isinstance(tn, TensorNetwork): tn_cores = tn.cores.values()
         elif isinstance(tn, TensorCore): tn_cores = [tn]
         else: tn_cores = []
@@ -63,6 +64,19 @@ class TensorNetwork:
             unique_indices = [e for e in indices if indices.count(e) == 1]
         else:
             unique_indices = indices
+            # Check if there are indices that does not appear in the network
+            # if not, add them to the unique_indices
+            new_indices = [idx for idx in indices if idx not in all_indices]
+            if len(new_indices) > 0:
+                # Add new axis to the last core
+                if new_indices:
+                    for idx in new_indices:
+                        struct[-2] = struct[-2].expand_dims(-1, name=idx, inplace=False)
+                    struct[-1] = struct[-2].indices
+
+        if batch:
+            unique_indices = list(set(unique_indices))
+            unique_indices.append('batch')
 
         struct.append(unique_indices)
         result = contract(*struct)
@@ -75,15 +89,6 @@ class TensorNetwork:
 
         for _, core in cores.items():
             core.rename(old_name, new_name, inplace=True)
-            # if "*" in old_name: old_name = old_name.replace("*", "(\d+)")
-            # new_indices = []
-            # for idx in core.indices:
-            #     new_indices.append(re.sub(
-            #         old_name.replace('*', '(.*)'),
-            #         new_name.replace('*', r'\1'),
-            #         idx
-            #     ))
-            # core.indices = tuple(new_indices)
 
         return self if inplace else TensorNetwork(cores)
 

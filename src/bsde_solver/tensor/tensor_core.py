@@ -126,3 +126,19 @@ class TensorCore(np.ndarray):
             self.indices = tuple(new_indices)
         else:
             return TensorCore(deepcopy(self), indices=tuple(new_indices), name=self.name)
+
+        return self
+
+    def expand_dims(self, axis, inplace=True, name=None):
+        new_array = super().reshape(*self.shape_info[:axis], 1, *self.shape_info[axis:])
+        new_indices = list(self.indices)
+        new_indices.insert(axis, name if name else f"axis_{axis}")
+        new_indices = tuple(new_indices)
+
+        if inplace:
+            self[:] = new_array
+            self.indices = new_indices
+        else:
+            return TensorCore(new_array, indices=new_indices, name=self.name)
+
+        return self
