@@ -85,7 +85,7 @@ class BatchTensorTrain(TensorNetwork):
                     indices=core_prev.indices, name=core_prev.name
                 )
                 self.cores[f"core_{k}"] = TensorCore(
-                    V.T.reshape(core_curr.shape),
+                    V.transpose(0, 2, 1).reshape(core_curr.shape),
                     indices=core_curr.indices, name=core_curr.name
                 )
         else:
