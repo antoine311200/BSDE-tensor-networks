@@ -49,10 +49,6 @@ def batch_derivative(tt_batch: BatchTensorTrain, phis, dphis):
         cores=dphis, names=[f"dphi_{i}" for i in range(len(dphis))]
     )
 
-    # print(tt_batch)
-    # print(phis_batch)
-    # print(dphis_batch)
-
     derivatives = np.zeros(tt_batch.batch_size)
     right_parts, left_parts = [], []
 
