@@ -1,8 +1,8 @@
 import numpy as np
 from time import time
 
-from bsde_solver.tensor.tensor_network import TensorCore, TensorNetwork
-from bsde_solver.tensor.tensor_network import MatrixProductState, left_unfold, right_unfold
+from bsde_solver.core.tensor.tensor_network import TensorCore, TensorNetwork
+from bsde_solver.core.tensor.tensor_network import MatrixProductState, left_unfold, right_unfold
 
 np.set_printoptions(precision=2)
 np.set_printoptions(suppress=True)

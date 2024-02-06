@@ -1,7 +1,7 @@
 import numpy as np
 
-from bsde_solver.tensor.tensor_train import TensorTrain, BatchTensorTrain
-from bsde_solver.tensor.tensor_network import TensorNetwork
+from bsde_solver.core.tensor.tensor_train import TensorTrain, BatchTensorTrain
+from bsde_solver.core.tensor.tensor_network import TensorNetwork
 
 def derivative(tt: TensorTrain, phi, dphi):
     derivative = np.zeros(tt.order)

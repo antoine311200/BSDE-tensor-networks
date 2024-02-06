@@ -1,6 +1,6 @@
-from bsde_solver.tensor.tensor_train import BatchTensorTrain, TensorTrain, left_unfold, right_unfold
-from bsde_solver.tensor.tensor_core import TensorCore
-from bsde_solver.tensor.tensor_network import TensorNetwork
+from bsde_solver.core.tensor.tensor_train import BatchTensorTrain, TensorTrain, left_unfold, right_unfold
+from bsde_solver.core.tensor.tensor_core import TensorCore
+from bsde_solver.core.tensor.tensor_network import TensorNetwork
 from bsde_solver.utils import batch_qr
 
 import numpy as np

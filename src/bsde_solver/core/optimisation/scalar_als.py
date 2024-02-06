@@ -1,6 +1,6 @@
-from bsde_solver.tensor.tensor_train import BatchTensorTrain, TensorTrain, left_unfold, right_unfold
-from bsde_solver.tensor.tensor_core import TensorCore
-from bsde_solver.tensor.tensor_network import TensorNetwork
+from bsde_solver.core.tensor.tensor_train import BatchTensorTrain, TensorTrain, left_unfold, right_unfold
+from bsde_solver.core.tensor.tensor_core import TensorCore
+from bsde_solver.core.tensor.tensor_network import TensorNetwork
 from bsde_solver.utils import batch_qr
 
 import numpy as np
@@ -95,13 +95,17 @@ def batch_scalar_ALS(phis: list[TensorCore], result: list[float], n_iter=10, ran
         V = V.unfold("batch", (f"r_{j}", f"m_{j+1}", f"r_{j+1}"))
 
         # Add regularization
-        A += 0.1 * np.stack([
-            np.random.rand(A.shape[1], A.shape[1])
-            for _ in range(batch_size)
-        ])
+        # A += 0.1 * np.stack([
+        #     np.random.rand(A.shape[1], A.shape[1])
+        #     for _ in range(batch_size)
+        # ])
         V *= result
 
-        X = np.linalg.solve(A.view(np.ndarray), V.view(np.ndarray))
+        # X = np.linalg.solve(A.view(np.ndarray), V.view(np.ndarray))
+        X = np.zeros_like(V.view(np.ndarray))
+        for i in range(batch_size):
+            X[i] = np.linalg.lstsq(A[i].view(np.ndarray), V[i].view(np.ndarray), rcond=None)[0]
+
         X = TensorCore.like(X, tt.cores[f"core_{j}"])
         return X
 

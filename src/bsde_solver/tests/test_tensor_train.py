@@ -1,4 +1,4 @@
-from bsde_solver.tensor.tensor_train import TensorTrain
+from bsde_solver.core.tensor.tensor_train import TensorTrain
 from bsde_solver.utils import matricized
 
 import numpy as np
