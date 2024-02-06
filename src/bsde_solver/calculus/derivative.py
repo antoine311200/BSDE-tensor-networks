@@ -4,7 +4,7 @@ from bsde_solver.tensor.tensor_train import TensorTrain, BatchTensorTrain
 from bsde_solver.tensor.tensor_network import TensorNetwork
 
 def derivative(tt: TensorTrain, phi, dphi):
-    derivative = 0
+    derivative = np.zeros(tt.order)
     right_parts, left_parts = [], []
     for i in range(tt.order - 1, 0, -1):
         right_part = TensorNetwork(
@@ -37,7 +37,7 @@ def derivative(tt: TensorTrain, phi, dphi):
             names=[f"left_part_{i}", f"right_part_{i}", f"core_{i}", f"dphi_{i}"],
         )
         left_parts.append(left_part)
-        derivative += float(partial_derivative.contract().squeeze())
+        derivative[i] = float(partial_derivative.contract().squeeze())
     return derivative
 
 
@@ -47,7 +47,7 @@ def batch_derivative(tt_batch: BatchTensorTrain, phis, dphis):
         cores=dphis, names=[f"dphi_{i}" for i in range(len(dphis))]
     )
 
-    derivatives = np.zeros(tt_batch.batch_size)
+    derivatives = np.zeros((tt_batch.batch_size, tt_batch.order))
     right_parts, left_parts = [], []
 
     for i in range(tt_batch.order - 1, 0, -1):
@@ -81,6 +81,6 @@ def batch_derivative(tt_batch: BatchTensorTrain, phis, dphis):
             names=[f"left_part_{i}", f"right_part_{i}", f"core_{i}", f"dphi_{i}"],
         )
         left_parts.append(left_part)
-        derivatives += partial_derivative.contract(batch=True).squeeze().view(np.ndarray)
+        derivatives[:, i] = partial_derivative.contract(batch=True).squeeze().view(np.ndarray)
 
     return derivatives
