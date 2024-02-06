@@ -2,9 +2,9 @@ from time import perf_counter
 
 import numpy as np
 
-from bsde_solver.tensor.tensor_train import TensorTrain, BatchTensorTrain
-from bsde_solver.tensor.tensor_core import TensorCore
-from bsde_solver.calculus.derivative import derivative, batch_derivative
+from bsde_solver.core.tensor.tensor_train import TensorTrain, BatchTensorTrain
+from bsde_solver.core.tensor.tensor_core import TensorCore
+from bsde_solver.core.calculus.derivative import derivative, batch_derivative
 
 
 if __name__ == "__main__":
@@ -22,7 +22,7 @@ if __name__ == "__main__":
     def poly_derivative(x, degree=10):
         return np.array([i * x ** (i - 1) for i in range(degree)]).T
 
-    n_simulations = 5000
+    n_simulations = 1
     phis, dphis = [], []
     np.random.seed(0)
     for i in range(n_simulations):
@@ -48,9 +48,9 @@ if __name__ == "__main__":
     #################### Single derivative ####################
 
     start_time = perf_counter()
-    derivatives = np.zeros(n_simulations)
-    for i in range(n_simulations):
-        derivatives[i] = derivative(tt, phis[i], dphis[i])
+    # derivatives = np.zeros(n_simulations)
+    # for i in range(n_simulations):
+    #     derivatives[i] = derivative(tt, phis[i], dphis[i])
 
     end_time = perf_counter() - start_time
     print("Time:", end_time)
@@ -71,17 +71,37 @@ if __name__ == "__main__":
 
     phis = phis.transpose((1, 0, 2)) # (tt.order, n_simulations, degree)
     dphis = dphis.transpose((1, 0, 2)) # (tt.order, n_simulations, degree)
-    phis = [TensorCore(phis[i], name=f"phi_{i+1}", indices=("batch", f"m_{i+1}")) for i in range(tt.order)]
+    tphis = [TensorCore(phis[i], name=f"phi_{i+1}", indices=("batch", f"m_{i+1}")) for i in range(tt.order)]
     dphis = [TensorCore(dphis[i], name=f"dphi_{i+1}", indices=("batch", f"m_{i+1}")) for i in range(tt.order)]
 
     batch_tt = BatchTensorTrain.dupplicate(n_simulations, tt)
 
     start_time_batch = perf_counter()
-    batch_derivatives = batch_derivative(batch_tt, phis, dphis)
+    batch_derivatives = batch_derivative(batch_tt, tphis, dphis)
     end_time_batch = perf_counter() - start_time_batch
     print("Time:", end_time_batch)
 
     print("Speed up factor:", end_time / end_time_batch)
 
+    print(batch_derivatives)
+
+    # from torch import autograd, tensor, einsum
+
+    # tsr = batch_tt.contract(batch=True).view(np.ndarray).squeeze()
+    # tsr = autograd.Variable(tensor(tsr).float(), requires_grad=True).flatten()
+
+
+    # print(phis.shape)
+
+    # prodphis = np.einsum('a,b,c,d,e->abcde', phis[0].squeeze(), phis[1].squeeze(), phis[2].squeeze(), phis[3].squeeze(), phis[4].squeeze())
+    # prodphis = autograd.Variable(tensor(prodphis).float(), requires_grad=True).flatten()
+
+    # dot = einsum('a,a->', prodphis, tsr).squeeze().sum()
+    # print(dot)
+    # dot.backward(retain_graph=True)
+
+    # grad = autograd.grad(dot, prodphis, create_graph=True)
+    # print(len(grad))
+    # print(grad[0].shape)
     # Check if the results are the same
-    print(np.allclose(derivatives, batch_derivatives))
+    # print(np.allclose(derivatives, batch_derivatives))

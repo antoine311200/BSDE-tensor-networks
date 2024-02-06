@@ -6,7 +6,7 @@ import numpy as np
 from copy import deepcopy
 from opt_einsum import contract
 
-from bsde_solver.tensor.tensor_core import TensorCore
+from bsde_solver.core.tensor.tensor_core import TensorCore
 
 class TensorNetwork:
 
