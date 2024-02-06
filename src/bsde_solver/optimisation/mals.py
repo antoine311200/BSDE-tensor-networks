@@ -31,6 +31,8 @@ def scalar_MALS(phis: list[TensorCore], result: float, n_iter=10, ranks=None):
         # A += 0.1 * np.random.rand(A.shape[1], A.shape[1])
         V *= result
 
+        print(A)
+
         # W = np.linalg.lstsq(A.view(np.ndarray), V.view(np.ndarray), rcond=None)[0]
         W = np.linalg.solve(A.view(np.ndarray), V.view(np.ndarray))
         W = W.reshape(tt.ranks[j] * tt.shape[j], tt.shape[j+1] * tt.ranks[j+2])
@@ -38,8 +40,9 @@ def scalar_MALS(phis: list[TensorCore], result: float, n_iter=10, ranks=None):
         return W
 
     for _ in range(n_iter):
+        print("Left half sweep")
         # Left half sweep
-        for j in range(tt.order - 2):
+        for j in range(tt.order - 1):
             # Micro optimization
             W = micro_optimization(tt, j)
 
@@ -54,7 +57,7 @@ def scalar_MALS(phis: list[TensorCore], result: float, n_iter=10, ranks=None):
             tt.cores[f"core_{j+1}"] = Z
         print("Rigth half sweep")
         # Right half sweep
-        for j in range(tt.order - 1, 1, -1):
+        for j in range(tt.order - 1, 0, -1):
             # Micro optimization
             W = micro_optimization(tt, j-1)
 
