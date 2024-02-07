@@ -28,4 +28,4 @@ __pycache__/
 # Remove the .egg-info folder
 *.egg-info/
 
-*.ipynb -linguist-detectable
+*.ipynb -linguist-detectable=false
