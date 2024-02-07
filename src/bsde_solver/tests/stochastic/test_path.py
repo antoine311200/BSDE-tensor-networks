@@ -14,10 +14,14 @@ class HJB:
         return np.sqrt(2) * np.eye(x.shape[0])
 
     def h(self, x, y, z, t):
-        return -1/2 * np.sum(z * z, axis=0)
+        # print(np.linalg.norm(z, axis=0) ** 2)
+        # print(np.trace(z @ z.T))
+        return -1/2 * np.linalg.norm(z, axis=0) ** 2
 
     def g(self, x):
-        return np.log(x)
+        print(np.linalg.norm(x, axis=0) ** 2)
+        print(np.trace(x @ x.T))
+        return np.log(1/2 + 1/2 * np.linalg.norm(x, axis=0) ** 2)
 
 if __name__ == "__main__":
     X0 = np.array([1, 3, 2])
