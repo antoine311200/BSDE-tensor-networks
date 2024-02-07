@@ -76,7 +76,7 @@ class TensorNetwork:
 
         if batch:
             unique_indices = list(set(unique_indices))
-            unique_indices.append('batch')
+            if 'batch' not in unique_indices: unique_indices.append('batch')
 
         struct.append(unique_indices)
         result = contract(*struct)
