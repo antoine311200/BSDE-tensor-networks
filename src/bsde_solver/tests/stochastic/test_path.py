@@ -1,27 +1,9 @@
 import numpy as np
 
-from bsde_solver.bsde import BackwardSDE
+from bsde_solver.bsde import BackwardSDE, HJB
 from bsde_solver.stochastic.path import generate_trajectories
 
 import matplotlib.pyplot as plt
-
-class HJB:
-
-    def b(self, x, t):
-        return np.zeros(x.shape)
-
-    def sigma(self, x, t):
-        return np.sqrt(2) * np.eye(x.shape[0])
-
-    def h(self, x, y, z, t):
-        # print(np.linalg.norm(z, axis=0) ** 2)
-        # print(np.trace(z @ z.T))
-        return -1/2 * np.linalg.norm(z, axis=0) ** 2
-
-    def g(self, x):
-        print(np.linalg.norm(x, axis=0) ** 2)
-        print(np.trace(x @ x.T))
-        return np.log(1/2 + 1/2 * np.linalg.norm(x, axis=0) ** 2)
 
 if __name__ == "__main__":
     X0 = np.array([1, 3, 2])
@@ -31,7 +13,7 @@ if __name__ == "__main__":
     dim = 3
     batch_size = 4
 
-    model = HJB()
+    model = HJB(X0, delta_t, T)
     x = generate_trajectories(batch_size, N, dim, X0, model, delta_t)
 
     plt.figure(figsize=(8, 8), dpi=100)
