@@ -69,3 +69,20 @@ class MultiAssetGaussian(BackwardSDE):
 
     def g(self, x):
         return np.sum(self.S0 * x, axis=1)
+
+class HJB(BackwardSDE):
+
+    def __init__(self, X0, delta_t, T) -> None:
+        super().__init__(X0, delta_t, T)
+
+    def b(self, x, t):
+        return np.zeros(x.shape)
+
+    def sigma(self, x, t):
+        return np.sqrt(2) * np.eye(x.shape[0])
+
+    def h(self, x, t, y, z):
+        return -1/2 * np.linalg.norm(z, axis=1) ** 2
+
+    def g(self, x):
+        return np.log(1/2 + 1/2 * np.linalg.norm(x, axis=1) ** 2)
