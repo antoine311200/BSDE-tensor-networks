@@ -158,7 +158,7 @@ def multi_als(phis: list[TensorCore], result: list[float], n_iter=10, ranks=None
 
     def micro_optimization(tt, j):
         P = retraction_operator(tt, j)
-        V = TensorNetwork(cores=[P, phis], names=["P", "phi"]).contract(batch=True, indices=(f"r_{j}", f"m_{j+1}", f"r_{j+1}"))
+        V = TensorNetwork(cores=[P, phis], names=["P", "phi"]).contract(batch=True, indices=(f"r_{j}", f"m_{j+1}", f"r_{j+1}"), optimize="auto")
         V_T = V.copy().rename("r_*", "s_*").rename("m_*", "n_*")
 
         # The operator A can be non invertible, so we need to use some regularization
@@ -172,12 +172,6 @@ def multi_als(phis: list[TensorCore], result: list[float], n_iter=10, ranks=None
         X = np.linalg.lstsq(A.view(np.ndarray), Y.view(np.ndarray), rcond=None)[0]
         X = TensorCore.like(X, tt.cores[f"core_{j}"])
         return X
-
-    vec = TensorNetwork(cores=[tt, phis], names=["tt", "phi"]).contract(batch=True).view(np.ndarray).squeeze()
-    res = result.view(np.ndarray)
-    print("Reconstruction error (batch):", np.linalg.norm(res - vec))
-    print("Mean reconstruction error (batch):", np.mean(np.abs(res - vec)))
-    print("Max reconstruction error (batch):", np.max(np.abs(res - vec)))
 
     for _ in range(n_iter):
         # Left half sweep
