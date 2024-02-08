@@ -27,3 +27,7 @@ __pycache__/
 
 # Remove the .egg-info folder
 *.egg-info/
+
+# Remove the .ipynb file from language list in repo
+notebooks/* linguist-vendored
+*.ipynb -linguist-detectable=false
