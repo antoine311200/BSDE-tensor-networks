@@ -10,20 +10,20 @@ from time import perf_counter
 if __name__ == "__main__":
 
     seed = 5454
-    degree = 10
-    num_assets = 5
+    degree = 3
+    num_assets = 10
 
     shape = [degree for _ in range(num_assets)]
-    dim = 5
+    dim = 3
     ranks = (1, ) + (dim,) * (num_assets - 1) + (1, )
 
     def poly(x, degree=10):
-        return np.array([x**i for i in range(degree)]).T
+        return np.array([x**i for i in range(degree)] + [np.log(1/2+1/2*x**2)]).T
 
     def poly_derivative(x, degree=10):
         return np.array([i * x ** (i - 1) for i in range(degree)]).T
 
-    n_simulations = 10000
+    n_simulations = 100
     xs, phis, dphis = [], [], []
 
     np.random.seed(seed)
@@ -79,17 +79,17 @@ if __name__ == "__main__":
     phis = [TensorCore(phis[i], name=f"phi_{i+1}", indices=("batch", f"m_{i+1}")) for i in range(num_assets)]
     dphis = [TensorCore(dphis[i], name=f"dphi_{i+1}", indices=("batch", f"m_{i+1}")) for i in range(num_assets)]
 
-    print("Start ALS")
+    print(f"Alternating Least Squares (n_simulations={n_simulations}, degree={degree}, num_assets={num_assets}, ranks={dim})")
     start_time_batch = perf_counter()
-    multi_als_result = multi_als(phis, b, n_iter=10, ranks=ranks)
+    multi_als_result = multi_als(phis, b, n_iter=1, ranks=ranks)
     end_time_batch = perf_counter() - start_time_batch
     print("Time:", end_time_batch)
 
     batch_phis = TensorNetwork(cores=phis)
     result = TensorNetwork(cores=[multi_als_result, batch_phis], names=["tt", "phi"]).contract(batch=True).view(np.ndarray).squeeze()
 
-    print("Reconstruction error (batch):", np.linalg.norm(result - b))
-    print("Mean reconstruction error (batch):", np.mean(np.abs(result - b)))
-    print("Max reconstruction error (batch):", np.max(np.abs(result - b)))
-
-    # print("Speed up factor:", end_time / end_time_batch)
+    l2 = np.linalg.norm(result - b)
+    l1 = np.linalg.norm(result - b, ord=1)
+    print("Reconstruction error (total)   L2:", round(l2, 4), "   L1:", round(l1, 4))
+    print("Mean reconstruction error ", round(np.mean(np.abs(result - b)), 4))
+    print("Maximum reconstruction error:", round(np.max(np.abs(result - b)), 4))
