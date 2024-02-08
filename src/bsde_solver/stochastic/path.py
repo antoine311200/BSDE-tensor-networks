@@ -24,6 +24,6 @@ def generate_trajectories(batch_size, N, dim, X0, model, delta_t=0.01):
     for n in range(N):
         x[:, n + 1] = x[:, n] + \
             model.b(x[:, n], delta_t) * delta_t + \
-            model.sigma(x[:, n], delta_t) * np.sqrt(delta_t) * xi[:, n]
+            model.sigma(x[:, n], delta_t) @ xi[:, n] * np.sqrt(delta_t)
 
     return x
