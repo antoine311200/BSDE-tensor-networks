@@ -9,6 +9,8 @@ class Basis:
     def grad(self, x):
         raise NotImplementedError("grad")
 
+    def dgrad(self, x):
+        raise NotImplementedError("dgrad")
 
 class PolynomialBasis(Basis):
 
@@ -20,6 +22,9 @@ class PolynomialBasis(Basis):
 
     def grad(self, x):
         return np.array([np.zeros(x.shape)] + [i * x ** (i - 1) for i in range(1, self.degree)]).T
+
+    def dgrad(self, x):
+        return np.array([np.zeros(x.shape), np.zeros(x.shape)] + [i * (i - 1) * x ** (i - 2) for i in range(2, self.degree)]).T
 
 class LegendreBasis(Basis):
 
@@ -34,6 +39,9 @@ class LegendreBasis(Basis):
 
     def grad(self, x):
         return np.array([np.polyval(self.grad_coefs[i], x) for i in range(self.degree)]).T
+
+    def dgrad(self, x):
+        return np.array([np.polyval(self.grad_coefs[i].deriv(), x) for i in range(self.degree)]).T
 
 class WaveletBasis(Basis):
 
