@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import re
 import numpy as np
 
@@ -142,3 +144,12 @@ class TensorCore(np.ndarray):
             return TensorCore(new_array, indices=new_indices, name=self.name)
 
         return self
+
+    @staticmethod
+    def concatenate(tensors: list[TensorCore]):
+        '''Stacks a sequence of tensors along a new axis called batch as the first axis and return a new tensor core.'''
+        batch_size = len(tensors)
+        new_shape = (batch_size,) + tensors[0].shape_info
+        new_indices = ('batch',) + tensors[0].indices
+        new_array = np.stack([tensor for tensor in tensors], axis=0)
+        return TensorCore(new_array, indices=new_indices)

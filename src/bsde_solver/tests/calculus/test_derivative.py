@@ -8,7 +8,7 @@ from bsde_solver.core.calculus.derivative import derivative, batch_derivative
 
 
 if __name__ == "__main__":
-    degree = 10
+    degree = 5
     num_assets = 5
 
     shape = [degree for _ in range(num_assets)]
@@ -22,7 +22,7 @@ if __name__ == "__main__":
     def poly_derivative(x, degree=10):
         return np.array([i * x ** (i - 1) for i in range(degree)]).T
 
-    n_simulations = 1
+    n_simulations = 1000
     phis, dphis = [], []
     np.random.seed(0)
     for i in range(n_simulations):
@@ -48,9 +48,9 @@ if __name__ == "__main__":
     #################### Single derivative ####################
 
     start_time = perf_counter()
-    # derivatives = np.zeros(n_simulations)
-    # for i in range(n_simulations):
-    #     derivatives[i] = derivative(tt, phis[i], dphis[i])
+    derivatives = [None for _ in range(n_simulations)]
+    for i in range(n_simulations):
+        derivatives[i] = derivative(tt, phis[i], dphis[i])
 
     end_time = perf_counter() - start_time
     print("Time:", end_time)

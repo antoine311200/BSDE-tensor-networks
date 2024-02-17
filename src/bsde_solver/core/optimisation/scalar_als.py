@@ -145,3 +145,67 @@ def batch_scalar_ALS(phis: list[TensorCore], result: list[float], n_iter=10, ran
             batch_tt.cores[f"core_{j}"] = TensorCore.like(Q.transpose(0, 2, 1), core_curr)
 
     return batch_tt
+
+
+def multi_als(phis: list[TensorCore], result: list[float], n_iter=10, ranks=None):
+    shape = tuple([phi.shape[1] for phi in phis])
+
+    tt = TensorTrain(shape, ranks).randomize()
+    tt.orthonormalize(mode="right", start=1)
+
+    phis = TensorNetwork(cores=phis)
+    result = TensorCore(np.array(result), name="result", indices=("batch", ))
+
+    def micro_optimization(tt, j):
+        P = retraction_operator(tt, j)
+        V = TensorNetwork(cores=[P, phis], names=["P", "phi"]).contract(batch=True, indices=(f"r_{j}", f"m_{j+1}", f"r_{j+1}"), optimize="auto")
+        V_T = V.copy().rename("r_*", "s_*").rename("m_*", "n_*")
+
+        # The operator A can be non invertible, so we need to use some regularization
+        A = TensorNetwork(cores=[V_T, V], names=["V_T", "V"]).contract()
+        A = A.unfold((f"s_{j}", f"n_{j+1}", f"s_{j+1}"), (f"r_{j}", f"m_{j+1}", f"r_{j+1}"))
+        V = V.unfold("batch", (f"r_{j}", f"m_{j+1}", f"r_{j+1}"))
+
+        Y = TensorNetwork(cores=[V, result], names=["V", "result"]).contract()
+
+        # X = np.linalg.solve(A.view(np.ndarray), Y.view(np.ndarray))
+        X = np.linalg.lstsq(A.view(np.ndarray), Y.view(np.ndarray), rcond=None)[0]
+        X = TensorCore.like(X, tt.cores[f"core_{j}"])
+        return X
+
+    for _ in range(n_iter):
+        # Left half sweep
+        for j in range(tt.order - 1):
+            # Micro optimization
+            V = micro_optimization(tt, j)
+
+            core_curr = tt.cores[f"core_{j}"]
+            core_next = tt.cores[f"core_{j+1}"]
+
+            L = left_unfold(V).view(np.ndarray)
+            R = right_unfold(core_next).view(np.ndarray)
+
+            Q, S = np.linalg.qr(L)
+            W = S @ R
+
+            tt.cores[f"core_{j}"] = TensorCore.like(Q, core_curr)
+            tt.cores[f"core_{j+1}"] = TensorCore.like(W, core_next)
+
+        # Right half sweep
+        for j in range(tt.order - 1, 0, -1):
+            # Micro optimization
+            V = micro_optimization(tt, j)
+
+            core_prev = tt.cores[f"core_{j-1}"]
+            core_curr = tt.cores[f"core_{j}"]
+
+            L = left_unfold(core_prev).view(np.ndarray)
+            R = right_unfold(V).view(np.ndarray)
+
+            Q, S = np.linalg.qr(R.T)
+            W = L @ S.T
+
+            tt.cores[f"core_{j-1}"] = TensorCore.like(W, core_prev)
+            tt.cores[f"core_{j}"] = TensorCore.like(Q.T, core_curr)
+
+    return tt
