@@ -89,6 +89,27 @@ class HJB(BackwardSDE):
     def g(self, x):
         return np.log(1/2 + 1/2 * np.sum(x**2, axis=-1))
 
+class DoubleWellHJB(BackwardSDE):
+
+    def __init__(self, X0, delta_t, T, nu) -> None:
+        super().__init__(X0, delta_t, T)
+
+        self.dim = X0.shape[-1]
+        self.C = 0.1 * np.eye(self.dim)
+        self.nu = nu
+
+    def b(self, x, t):
+        return -(2 * x * ((x**2 - 1) @ self.C) + 2 * x * ((x**2 - 1) @ self.C.T))
+
+    def sigma(self, x, t):
+        return np.sqrt(2) * np.eye(self.dim)
+
+    def h(self, x, t, y, z):
+        return -1/2 * np.sum(z**2, axis=1)
+
+    def g(self, x):
+        return np.sum(self.nu * (x - 1)**2, axis=1)
+
 # class OrnsteinUhlenbeck(BackwardSDE):
 
 #     def __init__(self, X0, delta_t, T, r, sigma, theta) -> None:
