@@ -11,7 +11,7 @@ if __name__ == "__main__":
 
     seed = 5454
     degree = 3
-    num_assets = 10
+    num_assets = 3
 
     shape = [degree for _ in range(num_assets)]
     dim = 3
@@ -23,7 +23,7 @@ if __name__ == "__main__":
     def poly_derivative(x, degree=10):
         return np.array([i * x ** (i - 1) for i in range(degree)]).T
 
-    n_simulations = 100
+    n_simulations = 10000
     xs, phis, dphis = [], [], []
 
     np.random.seed(seed)
