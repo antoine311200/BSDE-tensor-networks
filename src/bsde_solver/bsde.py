@@ -75,14 +75,56 @@ class HJB(BackwardSDE):
     def __init__(self, X0, delta_t, T) -> None:
         super().__init__(X0, delta_t, T)
 
+        self.dim = X0.shape[-1]
+
     def b(self, x, t):
-        return np.zeros(x.shape)
+        return np.zeros_like(x)
 
     def sigma(self, x, t):
-        return np.sqrt(2) * np.eye(x.shape[0])
+        return np.sqrt(2) * np.eye(self.dim)
 
     def h(self, x, t, y, z):
-        return -1/2 * np.linalg.norm(z, axis=1) ** 2
+        return -1/2 * np.sum(z**2, axis=1)
 
     def g(self, x):
-        return np.log(1/2 + 1/2 * np.linalg.norm(x, axis=1) ** 2)
+        return np.log(1/2 + 1/2 * np.sum(x**2, axis=-1))
+
+# class OrnsteinUhlenbeck(BackwardSDE):
+
+#     def __init__(self, X0, delta_t, T, r, sigma, theta) -> None:
+#         super().__init__(X0, delta_t, T)
+
+#         self.r = r
+#         self.sigma = sigma
+#         self.theta = theta
+
+#     def b(self, x, t):
+#         return self.theta * (self.r - x)
+
+#     def sigma(self, x, t):
+#         return self.sigma
+
+#     def h(self, x, t, y, z):
+#         return -self.r * y
+
+#     def g(self, x):
+#         return np.linalg.norm(x, axis=1) ** 2
+
+# class AllenCahn(BackwardSDE):
+
+#     def __init__(self, X0, delta_t, T) -> None:
+#         super().__init__(X0, delta_t, T)
+
+#         self.dim = X0.shape[0]
+
+#     def b(self, x, t):
+#         return np.zeros(x.shape)
+
+#     def sigma(self, x, t):
+#         return np.eye(self.dim)
+
+#     def h(self, x, t, y, z):
+#         return -1/2 * np.linalg.norm(z, axis=1) ** 2
+
+#     def g(self, x):
+#         return np.linalg.norm(x, axis=1) ** 2
