@@ -25,8 +25,10 @@ class PDELoss:
         """
         sigma = self.model.sigma(x, t)
         sigma2 = sigma.T @ sigma
-        loss = vt + 1/2 * np.sum(sigma2 * vxx, axis=1)
-        loss += self.model.b(x, t) @ vx + self.model.h(x, t, v, (sigma.T @ vx.T).T)
+        z = (vx @ sigma) if len(sigma.shape) != 1 else sigma * vx
+        loss = vt + np.sum(self.model.b(x, t) * z, axis=1)
+        loss += 1/2 * np.sum(sigma2 * vxx, axis=(1, 2))
+        loss += self.model.h(x, t, v, vx)
         return loss
 
 class ReferenceLoss:

@@ -147,10 +147,13 @@ def batch_scalar_ALS(phis: list[TensorCore], result: list[float], n_iter=10, ran
     return batch_tt
 
 
-def multi_als(phis: list[TensorCore], result: list[float], n_iter=10, ranks=None):
+def multi_als(phis: list[TensorCore], result: list[float], n_iter=10, ranks=None, eta=0.0001, init_tt=None):
     shape = tuple([phi.shape[1] for phi in phis])
 
-    tt = TensorTrain(shape, ranks).randomize()
+    if init_tt:
+        tt = init_tt
+    else:
+        tt = TensorTrain(shape, ranks).randomize()
     tt.orthonormalize(mode="right", start=1)
 
     phis = TensorNetwork(cores=phis)
@@ -158,8 +161,38 @@ def multi_als(phis: list[TensorCore], result: list[float], n_iter=10, ranks=None
 
     def micro_optimization(tt, j):
         P = retraction_operator(tt, j)
-        V = TensorNetwork(cores=[P, phis], names=["P", "phi"]).contract(batch=True, indices=(f"r_{j}", f"m_{j+1}", f"r_{j+1}"), optimize="auto")
+        # print("P", P)
+        # print("phis", phis)
+
+        # import time
+
+        # start = time.time()
+        V = TensorNetwork(cores=[P, phis], names=["P", "phi"]).contract(batch=True, indices=(f"r_{j}", f"m_{j+1}", f"r_{j+1}"))
+        # # print(time.time() - start)
         V_T = V.copy().rename("r_*", "s_*").rename("m_*", "n_*")
+
+        # unbatch_phis = []
+        # for i in range(phis[0].shape_info[0]):
+        #     cores = {}
+        #     for k in range(len(phis.cores.keys())):
+        #         indices = phis.cores[f"phi_{k+1}"].indices
+        #         indices = [index for index in indices if index != "batch"]
+        #         cores[f"core_{k+1}"] = TensorCore(phis.cores[f"phi_{k+1}"][i], name=f"phi_{k+1}", indices=indices)
+        #     unphi = TensorNetwork(cores=cores)
+        #     unbatch_phis.append(unphi)
+
+        # # start = time.time()
+        # contr = []
+        # for i in range(phis[0].shape_info[0]):
+        #     contr.append(TensorNetwork(cores=[P, unbatch_phis[i]], names=["P", "phi"]).contract(indices=(f"r_{j}", f"m_{j+1}", f"r_{j+1}")))
+        # # print(time.time() - start)
+
+        # V = TensorCore.concatenate(contr)
+        # V_T = V.copy().rename("r_*", "s_*").rename("m_*", "n_*")
+        # print(V)
+
+        # import sys
+        # sys.exit()
 
         # The operator A can be non invertible, so we need to use some regularization
         A = TensorNetwork(cores=[V_T, V], names=["V_T", "V"]).contract()
@@ -167,6 +200,10 @@ def multi_als(phis: list[TensorCore], result: list[float], n_iter=10, ranks=None
         V = V.unfold("batch", (f"r_{j}", f"m_{j+1}", f"r_{j+1}"))
 
         Y = TensorNetwork(cores=[V, result], names=["V", "result"]).contract()
+
+        # Add regularization term as eta * I
+
+        A += eta * np.eye(A.shape[1])
 
         # X = np.linalg.solve(A.view(np.ndarray), Y.view(np.ndarray))
         X = np.linalg.lstsq(A.view(np.ndarray), Y.view(np.ndarray), rcond=None)[0]

@@ -1,62 +1,68 @@
 import numpy as np
 
-from bsde_solver.bsde import BackwardSDE, HJB
+import matplotlib.pyplot as plt
+
+from bsde_solver.bsde import BackwardSDE, HJB, DoubleWellHJB, BlackScholes
 from bsde_solver.stochastic.path import generate_trajectories
 from bsde_solver.core.tensor.tensor_network import TensorNetwork
 from bsde_solver.core.tensor.tensor_train import BatchTensorTrain
 from bsde_solver.core.tensor.tensor_core import TensorCore
 from bsde_solver.core.calculus.derivative import batch_derivative, multi_derivative
+from bsde_solver.core.calculus.hessian import hessian
 from bsde_solver.core.optimisation.scalar_als import multi_als
+from bsde_solver.core.calculus.basis import LegendreBasis, PolynomialBasis
+from bsde_solver.loss import PDELoss
+from bsde_solver.utils import flatten
 
+batch_size = 2000
+T = 1
+sigma = 0.4
+r = 0.05
+N = 100
+num_assets = 8
+dt = T / N
 
-def poly(x, degree=10):
-    return np.array([x**i for i in range(degree)]).T #+ [np.log(1/2+1/2*x**2)]
-
-
-def poly_derivative(x, degree=10):
-    return np.array([i * x ** (i - 1) for i in range(degree)]).T# + [2*x/(x**2+1)]).T
-
-
-batch_size = 1000
-N = 2
-num_assets = 10
-dt = 0.01
-T = N * dt
 
 rank = 2
 degree = 2
 shape = tuple([degree for _ in range(num_assets)])
 ranks = (1,) + (rank,) * (num_assets - 1) + (1,)
 
-X0 = np.zeros(num_assets) #np.random.rand(num_assets)
+# basis = LegendreBasis(degree)
+basis = PolynomialBasis(degree)
 
-model = HJB(X0, dt, T)
+# X0 = np.zeros(num_assets) # Hamilton-Jacobi-Bellman (HJB) initial condition
+X0 = np.array(flatten([(1, 0.5) for _ in range(num_assets//2)])) # Black-Scholes initial condition
+# X0 = -np.ones(num_assets) # Double-well HJB initial condition
+X0_batch = np.broadcast_to(X0, (batch_size, num_assets))
+
+model = BlackScholes(X0, dt, T, r, sigma)
+# model = HJB(X0, dt, T, sigma=np.sqrt(2))
+# nu = np.array([0.05 for _ in range(num_assets)])
+#model =DoubleWellHJB(X0, dt, T, nu)
+pde_loss = PDELoss(model)
 
 # Compute trajectories
-X = generate_trajectories(batch_size, N, num_assets, X0, model, dt)
-print(X.shape)  # (batch_size, N + 1, num_assets)
+X, noise = generate_trajectories(batch_size, N, num_assets, X0, model, dt) # (batch_size, N + 1, num_assets)
 
 phi_X = []
 dphi_X = []
+ddphi_X = []
 
 # Compute phi_X and dphi_X for each time step
 for n in range(N + 1):
-    phi_X_n = [TensorCore(poly(X[:, n, i], degree=degree),name=f"phi_{i+1}",indices=("batch", f"m_{i+1}"),) for i in range(num_assets)]
-    dphi_X_n = [TensorCore(poly_derivative(X[:, n, i], degree=degree),name=f"dphi_{i+1}",indices=("batch", f"m_{i+1}"),) for i in range(num_assets)]
+    phi_X_n = [TensorCore(basis.eval(X[:, n, i]),name=f"phi_{i+1}",indices=("batch", f"m_{i+1}"),) for i in range(num_assets)]
+    dphi_X_n = [TensorCore(basis.grad(X[:, n, i]),name=f"dphi_{i+1}",indices=("batch", f"m_{i+1}"),) for i in range(num_assets)]
+    ddphi_X_n = [TensorCore(basis.dgrad(X[:, n, i]),name=f"ddphi_{i+1}",indices=("batch", f"m_{i+1}"),) for i in range(num_assets)]
     phi_X.append(phi_X_n)
     dphi_X.append(dphi_X_n)
-
-print(phi_X[-1])
-print(dphi_X[-1])
+    ddphi_X.append(ddphi_X_n)
 
 Y = np.zeros((batch_size, N + 1))
-Y[:, -1] = model.g(X[:, -1, :])  # (batch_size, )
-
-print(Y[:10, -1])
+Y[:, -1] = model.g(X[:, -1])  # (batch_size, )
 
 V = [None for _ in range(N + 1)]
-V_N = multi_als(phi_X[-1], Y[:, -1], n_iter=50, ranks=ranks)
-print(V_N)
+V_N = multi_als(phi_X[-1], Y[:, -1], n_iter=10, ranks=ranks)
 V[-1] = V_N
 
 check_V = (
@@ -67,12 +73,10 @@ check_V = (
     .view(np.ndarray)
     .squeeze()
 )
-print('Reconstruction error at N:', np.linalg.norm(check_V - Y[:, -1]))
-print('Mean reconstruction error at N:', np.mean(np.abs(check_V - Y[:, -1])))
-print('Max reconstruction error at N:', np.max(np.abs(check_V - Y[:, -1])))
-print('Min reconstruction error at N:', np.min(np.abs(check_V - Y[:, -1])))
 
-print("Top 10 largest errors at N:", np.sort(np.abs(check_V - Y[:, -1]))[-10:])
+print("Mean reconstruction error at N:", f"{np.abs(np.mean(check_V - Y[:, -1])):.2e}")
+print("Value at N:", f"{np.mean(Y[:, -1]):.4f}")
+
 
 for n in range(N - 1, -1, -1):
     print("Step:", n)
@@ -92,41 +96,54 @@ for n in range(N - 1, -1, -1):
     dphi_X_n = dphi_X[n]  # tensor core of shape (batch_size, degree) * num_assets
 
     Z_n1 = multi_derivative(V_n1, phi_X_n1, dphi_X_n1)  # (batch_size, num_assets)
+    sigma_n1 = model.sigma(X_n1, (n+1) *dt)
     h_n1 = model.h(X_n1, (n+1) * dt, Y_n1, Z_n1)  # (batch_size, )
 
-    noise = np.random.randn(batch_size, num_assets)
-    V_n = multi_als(phi_X_n, h_n1*dt + Y_n1 - np.sum(model.sigma(X_n1, (n+1) *dt) @ Z_n1 * noise * np.sqrt(dt), axis=1), n_iter=15, ranks=ranks)
-    V[n] = V_n
+    step_n1 = h_n1*dt + Y_n1 #- np.einsum('ij,ij->i', Z_n1, noise) * np.sqrt(dt)
+    # np.sum(Z_n1 @ model.sigma(X_n1, (n+1) *dt) * noise, axis=1) * np.sqrt(dt) + Y_n1
+    V_n = multi_als(phi_X_n, step_n1, n_iter=10, ranks=ranks, init_tt=V_n1)
 
+    V[n] = V_n
     Y_n = TensorNetwork(
         cores=[V_n] + phi_X_n, names=["V"] + [f"phi_{i+1}" for i in range(num_assets)]
     ).contract(batch=True, indices=('batch',))
 
     Y[:, n] = Y_n.view(np.ndarray).squeeze()
 
-    print(Y[:10, n])
-    # break
+    vt = (Y[:, n + 1] - Y[:, n]) / dt
+    vx = Z_n1
+    vxx = hessian(V_n, phi_X_n, dphi_X_n, ddphi_X[n], batch=True).transpose((2, 0, 1))
+    loss = pde_loss(n*dt, X_n, Y_n, vt, vx, vxx)
+
+    price_n = model.price(X_n, n*dt)
+    print("Mean reconstruction error at n:", f"{np.abs(np.mean(price_n - Y[:, n])):.2e}")
+    # print(f"Ground value at {n}: {price_n:.3f} | Predicted value: {np.mean(Y[:, n]):.3f}")
+    # print("Error", np.abs(price_n - np.mean(Y[:, n])))
+    print("Mean PDE loss", loss.mean())
+    print("Mean abs PDE loss", np.abs(loss).mean())
+
 print("End")
 
-# Compute with Monte Carlo - log E[exp(-model.g(X0 + sqrt(T) * model.sigma(X0) * Z))]
+print()
+print("Price at 0", np.mean(model.price(X0_batch, 0)))
+print("Predicted Price:", np.mean(Y[:, 0]))
 
-# Z from N(0, I_dxd) with d = num_assets
-size = 100000
-Z = np.random.randn(size, num_assets)
-print(model.sigma(X0, T).shape)
-X_T = np.sqrt(T) * Z @ model.sigma(X0, T) + np.repeat(X0, size).reshape(num_assets, size).T
-# X_T = np.sqrt(T) * model.sigma(X0, T) @ Z.T + np.repeat(X0, size).reshape(num_assets, size)
-print(X_T.shape)
-Y_T = model.g(X_T)
-print(Y_T.shape)
-price = -np.log(np.mean(np.exp(-Y_T)))
 
-print("Ground Price:", price)
+plt.figure(figsize=(10, 5))
+n_simulations = 3
+colormap = plt.cm.viridis
 
-# Compute with Tensor Train
-V_0 = V[0]
-Y_0 = TensorNetwork(
-    cores=[V_0] + phi_X[0], names=["V"] + [f"phi_{i+1}" for i in range(num_assets)]
-).contract(batch=True, indices=('batch',))
+simulation_indices = np.random.choice(batch_size, n_simulations, replace=False)
+for j in range(len(simulation_indices)):
+    predicted_prices = [Y[simulation_indices[j], i] for i in range(N + 1)]
+    ground_prices = [model.price(np.array([X[simulation_indices[j], i]]), i * dt) for i in range(N + 1)]
 
-print(np.mean(Y_0.view(np.ndarray).squeeze()))
+    plt.plot(predicted_prices, label=f"Price #{j}", linestyle="--", color=colormap(j / n_simulations), lw=0.8)
+    plt.plot(ground_prices, label=f"Ground Price #{j}", linestyle="-", color=colormap(j / n_simulations), lw=0.8)
+
+plt.scatter([0], [np.mean(Y[:, 0])], color="red", label="Predicted Price at 0", marker="x")
+plt.scatter([0], [np.mean(model.price(X0_batch, 0))], color="red", label="Ground Price at 0", marker="o")
+plt.xlabel("Time")
+plt.ylabel("Price")
+plt.legend()
+plt.show()
