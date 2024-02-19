@@ -105,3 +105,7 @@ class TensorNetwork:
     def __repr__(self):
         info = ",\n    ".join([str(core) for core in self.cores.values()])
         return f"TensorNetwork(\n    {info}\n)"
+    
+    @property
+    def size(self):
+        return sum(core.size for core in self.cores.values())
