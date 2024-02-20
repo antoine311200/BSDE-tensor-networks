@@ -12,14 +12,16 @@ from bsde_solver.core.calculus.hessian import hessian
 from bsde_solver.core.optimisation.scalar_als import multi_als
 from bsde_solver.core.calculus.basis import LegendreBasis, PolynomialBasis
 from bsde_solver.loss import PDELoss
-from bsde_solver.utils import flatten
+from bsde_solver.utils import flatten, fast_contract
+
+import time
 
 batch_size = 2000
-T = 0.3
+T = 1
 sigma = 0.4
 r = 0.05
-N = 100
-num_assets = 2
+N = 50
+num_assets = 10
 dt = T / N
 
 
@@ -37,8 +39,8 @@ X0 = np.array(flatten([(1, 0.5) for _ in range(num_assets//2)])) # Black-Scholes
 # X0 = -np.ones(num_assets) # Double-well HJB initial condition
 X0_batch = np.broadcast_to(X0, (batch_size, num_assets))
 
-# model = BlackScholes(X0, dt, T, r, sigma)
-model = AllenCahn(X0, dt, T)
+model = BlackScholes(X0, dt, T, r, sigma)
+# model = AllenCahn(X0, dt, T)
 # model = HJB(X0, dt, T, sigma=np.sqrt(2))
 # nu = np.array([0.05 for _ in range(num_assets)])
 #model =DoubleWellHJB(X0, dt, T, nu)
@@ -53,9 +55,9 @@ ddphi_X = []
 
 # Compute phi_X and dphi_X for each time step
 for n in range(N + 1):
-    phi_X_n = [TensorCore(basis.eval(X[:, n, i]),name=f"phi_{i+1}",indices=("batch", f"m_{i+1}"),) for i in range(num_assets)]
-    dphi_X_n = [TensorCore(basis.grad(X[:, n, i]),name=f"dphi_{i+1}",indices=("batch", f"m_{i+1}"),) for i in range(num_assets)]
-    ddphi_X_n = [TensorCore(basis.dgrad(X[:, n, i]),name=f"ddphi_{i+1}",indices=("batch", f"m_{i+1}"),) for i in range(num_assets)]
+    phi_X_n = [TensorCore(basis.eval(X[:, n, i]), name=f"phi_{i+1}", indices=("batch", f"m_{i+1}"),) for i in range(num_assets)]
+    dphi_X_n = [TensorCore(basis.grad(X[:, n, i]), name=f"dphi_{i+1}", indices=("batch", f"m_{i+1}"),) for i in range(num_assets)]
+    ddphi_X_n = [TensorCore(basis.dgrad(X[:, n, i]), name=f"ddphi_{i+1}", indices=("batch", f"m_{i+1}"),) for i in range(num_assets)]
     phi_X.append(phi_X_n)
     dphi_X.append(dphi_X_n)
     ddphi_X.append(ddphi_X_n)
@@ -64,24 +66,20 @@ Y = np.zeros((batch_size, N + 1))
 Y[:, -1] = model.g(X[:, -1])  # (batch_size, )
 
 V = [None for _ in range(N + 1)]
-V_N = multi_als(phi_X[-1], Y[:, -1], n_iter=10, ranks=ranks)
+V_N = multi_als(phi_X[-1], Y[:, -1], n_iter=5, ranks=ranks)
 V[-1] = V_N
 
-check_V = (
-    TensorNetwork(
-        cores=[V_N] + phi_X[-1], names=["V"] + [f"phi_{i+1}" for i in range(num_assets)]
-    )
-    .contract(batch=True)
-    .view(np.ndarray)
-    .squeeze()
-)
+check_V = fast_contract(V_N, phi_X[-1])
 
 print("Mean reconstruction error at N:", f"{np.abs(np.mean(check_V - Y[:, -1])):.2e}")
-print("Value at N:", f"{np.mean(Y[:, -1]):.4f}")
+print("Prediction at N:", f"{np.mean(Y[:, -1]):.4f} | Value at N:", f"{np.mean(check_V):.4f}")
 
+print("Start")
+start_time = time.perf_counter()
 
 for n in range(N - 1, -1, -1):
     print("Step:", n)
+    step_start_time = time.perf_counter()
     # Compute Y = V_n+1(X_n+1)
     # Compute Z = grad_x V_n+1(X_n+1)
     # Compute h_n(X_n, t_n, Y, Z)
@@ -104,27 +102,29 @@ for n in range(N - 1, -1, -1):
     step_n1 = h_n1*dt + Y_n1 #- np.einsum('ij,ij->i', Z_n1, noise) * np.sqrt(dt)
     # np.sum(Z_n1 @ model.sigma(X_n1, (n+1) *dt) * noise, axis=1) * np.sqrt(dt) + Y_n1
     V_n = multi_als(phi_X_n, step_n1, n_iter=10, ranks=ranks, init_tt=V_n1)
-
     V[n] = V_n
-    Y_n = TensorNetwork(
-        cores=[V_n] + phi_X_n, names=["V"] + [f"phi_{i+1}" for i in range(num_assets)]
-    ).contract(batch=True, indices=('batch',))
+    Y_n = fast_contract(V_n, phi_X_n)
 
     Y[:, n] = Y_n.view(np.ndarray).squeeze()
 
-    vt = (Y[:, n + 1] - Y[:, n]) / dt
-    vx = Z_n1
-    vxx = hessian(V_n, phi_X_n, dphi_X_n, ddphi_X[n], batch=True).transpose((2, 0, 1))
-    loss = pde_loss(n*dt, X_n, Y_n, vt, vx, vxx)
 
     price_n = model.price(X_n, n*dt)
     print("Mean reconstruction error at n:", f"{np.abs(np.mean(price_n - Y[:, n])):.2e}")
-    # print(f"Ground value at {n}: {price_n:.3f} | Predicted value: {np.mean(Y[:, n]):.3f}")
-    # print("Error", np.abs(price_n - np.mean(Y[:, n])))
-    print("Mean PDE loss", loss.mean())
-    print("Mean abs PDE loss", np.abs(loss).mean())
+    print("Step time:", f"{time.perf_counter() - step_start_time:.2f}s")
+
+    # vt = (Y[:, n + 1] - Y[:, n]) / dt
+    # vx = Z_n1
+    # vxx = hessian(V_n, phi_X_n, dphi_X_n, ddphi_X[n], batch=True).transpose((2, 0, 1))
+    # loss = pde_loss(n*dt, X_n, Y_n, vt, vx, vxx)
+    loss = 0
+    # print("Mean PDE loss", loss.mean())
+    # print("Mean abs PDE loss", np.abs(loss).mean())
 
 print("End")
+
+end_time = time.perf_counter()
+
+print(f"Time: {end_time - start_time:.2f}s")
 
 print()
 print("Price at 0", np.mean(model.price(X0_batch, 0)))
