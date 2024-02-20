@@ -4,7 +4,7 @@ from typing import Any
 import re
 import numpy as np
 from copy import deepcopy
-from opt_einsum import contract
+from opt_einsum import contract, contract_path
 
 from bsde_solver.core.tensor.tensor_core import TensorCore
 
@@ -24,8 +24,10 @@ class TensorNetwork:
 
                 if hasattr(core, 'cores'):
                     for subname, core in core.cores.items():
+                        core.name = name+'_'+subname
                         self.add_core(core, name+'_'+subname)
                 else:
+                    core.name = name
                     self.add_core(core, name)
 
     def add_core(self, core: TensorCore, name: str = None):
@@ -41,7 +43,7 @@ class TensorNetwork:
         }
         return TensorNetwork(new_cores)
 
-    def contract(self, tn:  TensorNetwork | TensorCore = None, indices: list[str] = None, batch: bool = False, optimize: str = 'auto') -> TensorCore:
+    def contract(self, tn:  TensorNetwork | TensorCore = None, scheme = None, indices: list[str] = None, batch: bool = False, optimize: str = 'auto') -> TensorCore:
         struct = []
         all_indices = []
         for core in self.cores.values():
@@ -105,3 +107,18 @@ class TensorNetwork:
     def __repr__(self):
         info = ",\n    ".join([str(core) for core in self.cores.values()])
         return f"TensorNetwork(\n    {info}\n)"
+
+    def sample(self, idx: int) -> TensorCore:
+        batch = all(['batch' in core.indices for core in self.cores.values()])
+        if batch:
+            sampled_cores = []
+            for core in self.cores.values():
+                batch_index = core.indices.index('batch')
+                permutation = list(range(len(core.indices)))
+                permutation[0], permutation[batch_index] = permutation[batch_index], permutation[0]
+                transposed_core = core.view(type=np.ndarray).transpose(permutation)
+                subtensor = transposed_core[idx, ...]
+                sampled_cores.append(TensorCore(subtensor, indices=core.indices[1:]))
+            return TensorNetwork(sampled_cores, names=list(self.cores.keys()))
+        else:
+            return self

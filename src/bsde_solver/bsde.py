@@ -122,3 +122,26 @@ class DoubleWellHJB(BackwardSDE):
 
     def g(self, x):
         return np.sum(self.nu * (x - 1)**2, axis=1)
+
+class AllenCahn(BackwardSDE):
+
+    def __init__(self, X0, delta_t, T) -> None:
+        super().__init__(X0, delta_t, T)
+
+        self.dim = X0.shape[-1]
+
+    def b(self, x, t):
+        return np.zeros_like(x)
+
+    def sigma(self, x, t):
+        return np.eye(self.dim)
+
+    def h(self, x, t, y, z):
+        return -(-y + np.power(y, 3))
+
+    def g(self, x):
+        return 1/(2+0.4 * np.linalg.norm(x, axis=1)**2)
+    
+    def price(self, X, t):
+        # return np.mean(self.g(X))
+        return 0
