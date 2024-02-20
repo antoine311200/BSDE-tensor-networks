@@ -2,7 +2,7 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 
-from bsde_solver.bsde import BackwardSDE, HJB, DoubleWellHJB, BlackScholes
+from bsde_solver.bsde import BackwardSDE, HJB, DoubleWellHJB, BlackScholes, AllenCahn
 from bsde_solver.stochastic.path import generate_trajectories
 from bsde_solver.core.tensor.tensor_network import TensorNetwork
 from bsde_solver.core.tensor.tensor_train import BatchTensorTrain
@@ -15,11 +15,11 @@ from bsde_solver.loss import PDELoss
 from bsde_solver.utils import flatten
 
 batch_size = 2000
-T = 1
+T = 0.3
 sigma = 0.4
 r = 0.05
 N = 100
-num_assets = 8
+num_assets = 2
 dt = T / N
 
 
@@ -32,11 +32,13 @@ ranks = (1,) + (rank,) * (num_assets - 1) + (1,)
 basis = PolynomialBasis(degree)
 
 # X0 = np.zeros(num_assets) # Hamilton-Jacobi-Bellman (HJB) initial condition
+X0 = np.zeros(num_assets) # Allen-Cahn initial condition
 X0 = np.array(flatten([(1, 0.5) for _ in range(num_assets//2)])) # Black-Scholes initial condition
 # X0 = -np.ones(num_assets) # Double-well HJB initial condition
 X0_batch = np.broadcast_to(X0, (batch_size, num_assets))
 
-model = BlackScholes(X0, dt, T, r, sigma)
+# model = BlackScholes(X0, dt, T, r, sigma)
+model = AllenCahn(X0, dt, T)
 # model = HJB(X0, dt, T, sigma=np.sqrt(2))
 # nu = np.array([0.05 for _ in range(num_assets)])
 #model =DoubleWellHJB(X0, dt, T, nu)
