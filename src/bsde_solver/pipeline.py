@@ -112,13 +112,13 @@ for n in range(N - 1, -1, -1):
     print("Mean reconstruction error at n:", f"{np.abs(np.mean(price_n - Y[:, n])):.2e}")
     print("Step time:", f"{time.perf_counter() - step_start_time:.2f}s")
 
-    # vt = (Y[:, n + 1] - Y[:, n]) / dt
-    # vx = Z_n1
-    # vxx = hessian(V_n, phi_X_n, dphi_X_n, ddphi_X[n], batch=True).transpose((2, 0, 1))
-    # loss = pde_loss(n*dt, X_n, Y_n, vt, vx, vxx)
-    loss = 0
-    # print("Mean PDE loss", loss.mean())
-    # print("Mean abs PDE loss", np.abs(loss).mean())
+    if num_assets < 10:
+        vt = (Y[:, n + 1] - Y[:, n]) / dt
+        vx = Z_n1
+        vxx = hessian(V_n, phi_X_n, dphi_X_n, ddphi_X[n], batch=True).transpose((2, 0, 1))
+        loss = pde_loss(n*dt, X_n, Y_n, vt, vx, vxx)
+        print("Mean PDE loss", loss.mean())
+        print("Mean abs PDE loss", np.abs(loss).mean())
 
 print("End")
 
