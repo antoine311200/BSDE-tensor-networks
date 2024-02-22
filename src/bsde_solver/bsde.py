@@ -7,7 +7,7 @@ class BackwardSDE:
     """
 
     def __init__(self, X0, delta_t, T) -> None:
-        self.dim = X0.shape[0]
+        self.dim = X0.shape[-1]
         self.N = int(ceil(T / delta_t))
 
         self.delta_t = delta_t
@@ -35,7 +35,6 @@ class BlackScholes(BackwardSDE):
 
         def __init__(self, X0, delta_t, T, r, sigma) -> None:
             super().__init__(X0, delta_t, T)
-
             self.r = r
             self.sigma_ = sigma
 
@@ -81,26 +80,25 @@ class HJB(BackwardSDE):
 
     def __init__(self, X0, delta_t, T, sigma) -> None:
         super().__init__(X0, delta_t, T)
-
-        self.dim = X0.shape[-1]
         self.sigma_ = sigma
 
-    def b(self, x, t):
-        return np.zeros_like(x)
+    def b(self, x, t): # (b, d), (1, )
+        return np.zeros_like(x) # (b, d)
 
-    def sigma(self, x, t):
-        return self.sigma_ * np.eye(self.dim)
-
-    def h(self, x, t, y, z):
-        return - np.sum(z**2, axis=1)#-np.linalg.norm(z, axis=1) ** 2#
+    def sigma(self, x, t): # (b, d), (1, )
+        return self.sigma_ * np.tile(np.eye(x.shape[1]), (x.shape[0], 1, 1)) # (b, d, d)
+    
+    def h(self, x, t, y, z): # (b, d), (1, ), (b, 1), (b, d)
+        return - 0.5 * np.sum(z**2, axis=1) # (b, )
 
     def g(self, x):
-        return np.log(1/2 + 1/2 * np.sum(x**2, axis=1))#np.linalg.norm(x, axis=1) ** 2)#
+        return np.log(0.5 + 0.5 * np.sum(x**2, axis=1)) # (b, )
 
-    def price(self, X, t, batch_size=1e3):
-        noise = np.random.randn(X.shape[0], int(batch_size), X.shape[1])
-        X_T = self.sigma_ * np.sqrt(self.T - t) * noise + np.broadcast_to(X, (int(batch_size), X.shape[0], X.shape[1])).transpose(1, 0, 2)
-        return -np.log(np.mean(np.exp(-self.g(X_T)), axis=-1))
+    def price(self, x, t, n_sims=1e3): # (b, d), (1, )
+        noise = np.random.randn(x.shape[0], x.shape[1], n_sims)
+        value = np.exp(-self.g(x[:, :, None] + np.sqrt(self.T - t)  * self.sigma_ * noise))
+        expectation = np.mean(value, axis= -1)
+        return - np.log(expectation) # (b, )
 
 class DoubleWellHJB(BackwardSDE):
 

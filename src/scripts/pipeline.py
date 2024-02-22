@@ -18,7 +18,6 @@ import time
 
 batch_size = 2000
 T = 1
-r = 0.05
 N = 100
 num_assets = 2
 dt = T / N
@@ -29,26 +28,17 @@ degree = 3
 shape = tuple([degree for _ in range(num_assets)])
 ranks = (1,) + (rank,) * (num_assets - 1) + (1,)
 
-# basis = LegendreBasis(degree)
 basis = PolynomialBasis(degree)
 
-X0_batch = np.zeros(batch_size, num_assets) # Hamilton-Jacobi-Bellman (HJB) initial condition
-# X0 = np.zeros(num_assets) # Allen-Cahn initial condition
-# X0 = np.array(flatten([(1, 0.5) for _ in range(num_assets//2)])) # Black-Scholes initial condition
-# X0 = -np.ones(num_assets) # Double-well HJB initial condition
-# X0_batch = np.broadcast_to(X0, (batch_size, num_assets))
+X0 = np.zeros((batch_size, num_assets), dtype=np.float32) # Hamilton-Jacobi-Bellman (HJB) initial condition
 
-# model = BlackScholes(X0, dt, T, r, sigma)
-# model = AllenCahn(X0, dt, T)
-model = HJB(X0_batch, dt, T, sigma=np.sqrt(2))
-# nu = np.array([0.05 for _ in range(num_assets)])
-#model =DoubleWellHJB(X0, dt, T, nu)
-# pde_loss = PDELoss(model)
+model = HJB(X0=X0, delta_t=dt, T=T, sigma=np.sqrt(2))
+
 
 configurations = f"{num_assets} assets | {N} steps | {batch_size} batch size | {n_iter} iterations | {degree} degree | {rank} rank"
 
 # Compute trajectories
-X, noise = generate_trajectories(batch_size, N, num_assets, X0, model, dt) # (batch_size, N + 1, num_assets)
+X, noise = generate_trajectories(X0, T, N, model) # (batch_size, N + 1, dim), (batch_size, N + 1, dim) (xi[0] is not used)
 
 phi_X = []
 dphi_X = []
@@ -66,6 +56,8 @@ for n in range(N + 1):
 Y = np.zeros((batch_size, N + 1))
 Y[:, -1] = model.g(X[:, -1])  # (batch_size, )
 
+
+
 start_time = time.perf_counter()
 V = [None for _ in range(N + 1)]
 V_N = multi_als(phi_X[-1], Y[:, -1], n_iter=n_iter, ranks=ranks)
@@ -73,8 +65,11 @@ V[-1] = V_N
 print("Time to compute V_N:", f"{time.perf_counter() - start_time:.2f}s")
 
 check_V = fast_contract(V_N, phi_X[-1])
+error = check_V - Y[:, -1]
+print(f"Mean reconstruction error at N: {np.mean(np.abs(error)):.2e}, Max reconstruction error at N: {np.max(np.abs(error)):.2e}")
 
-print("Mean reconstruction error at N:", f"{np.abs(np.mean(check_V - Y[:, -1])):.2e}")
+exit()
+
 print("Prediction at N:", f"{np.mean(Y[:, -1]):.4f} | Value at N:", f"{np.mean(check_V):.4f}")
 
 print("Start")
