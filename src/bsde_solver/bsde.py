@@ -141,7 +141,7 @@ class AllenCahn(BackwardSDE):
 
     def g(self, x):
         return 1/(2+0.4 * np.linalg.norm(x, axis=1)**2)
-    
+
     def price(self, X, t):
         # return np.mean(self.g(X))
         return 0
