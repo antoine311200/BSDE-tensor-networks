@@ -30,10 +30,10 @@ def generate_trajectories(batch_size, N, dim, X0, model, delta_t=0.01):
         if len(sigma.shape) != 1:
             x[:, n + 1] = x[:, n] + \
                 model.b(x[:, n], n*delta_t) * delta_t + \
-                xi[:, n] @ sigma * np.sqrt(delta_t)
+                xi[:, n+1] @ sigma * np.sqrt(delta_t)
         else:
             x[:, n + 1] = x[:, n] + \
                 model.b(x[:, n], n*delta_t) * delta_t + \
-                (xi[:, n] * sigma) * np.sqrt(delta_t)
+                (xi[:, n+1] * sigma) * np.sqrt(delta_t)
 
     return x, xi
