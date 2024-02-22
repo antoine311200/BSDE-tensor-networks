@@ -86,15 +86,15 @@ class HJB(BackwardSDE):
         return np.zeros_like(x) # (b, d)
 
     def sigma(self, x, t): # (b, d), (1, )
-        return self.sigma_ * np.tile(np.eye(x.shape[1]), (x.shape[0], 1, 1)) # (b, d, d)
+        return self.sigma_ * np.tile(np.eye(x.shape[1]), (x.shape[0], 1, 1)) # (b, d)
     
     def h(self, x, t, y, z): # (b, d), (1, ), (b, 1), (b, d)
         return - 0.5 * np.sum(z**2, axis=1) # (b, )
 
-    def g(self, x):
+    def g(self, x): # (b, d)
         return np.log(0.5 + 0.5 * np.sum(x**2, axis=1)) # (b, )
 
-    def price(self, x, t, n_sims=1e3): # (b, d), (1, )
+    def price(self, x, t, n_sims=1000): # (b, d), (1, )
         noise = np.random.randn(x.shape[0], x.shape[1], n_sims)
         value = np.exp(-self.g(x[:, :, None] + np.sqrt(self.T - t)  * self.sigma_ * noise))
         expectation = np.mean(value, axis= -1)

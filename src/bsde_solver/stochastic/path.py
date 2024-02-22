@@ -44,7 +44,7 @@ def generate_trajectories(X0, T, N, model):
     x = np.zeros((batch_size, N + 1, dim))
     x[:, 0] = X0
 
-    for n in range(1, N):
+    for n in range(1, N+1):
         sigma = model.sigma(x[:, n - 1], n * dt) # (batch_size, dim, dim)
         x[:, n] = x[:, n - 1] + model.b(x[:, n - 1], n * dt) * dt + np.sqrt(dt) * np.einsum('ijk,ik->ij', sigma, xi[:, n])
 

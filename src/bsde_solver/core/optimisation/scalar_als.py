@@ -165,7 +165,7 @@ def multi_als(phis: list[TensorCore], result: list[float], n_iter=10, ranks=None
     if init_tt:
         tt = init_tt
     else:
-        tt = TensorTrain(shape, ranks).randomize()
+        tt = TensorTrain(shape, ranks)#.randomize()
     tt.orthonormalize(mode="right", start=1)
 
     phis = TensorNetwork(cores=phis)
