@@ -16,13 +16,14 @@ from bsde_solver.utils import flatten, fast_contract
 
 import time
 
-batch_size = 5000
+batch_size = 2000
 T = 1
 N = 10
 num_assets = 10
 dt = T / N
 
-n_iter = 5
+n_iter = 10
+n_iter_implicit = 10
 rank = 2
 degree = 3
 shape = tuple([degree for _ in range(num_assets)])
@@ -75,7 +76,7 @@ mean_relative_errors.append(np.mean(np.abs(error)))
 max_relative_errors.append(np.max(np.abs(error)))
 
 for n in range(N - 1, -1, -1):
-    print(f"Step: {N - n}/{N}")
+    print("Step:", n)
     step_start_time = time.perf_counter()
     # Compute Y = V_n+1(X_n+1)
     # Compute Z = grad_x V_n+1(X_n+1)
@@ -92,28 +93,38 @@ for n in range(N - 1, -1, -1):
     phi_X_n = phi_X[n]  # tensor core of shape (batch_size, degree) * num_assets
     dphi_X_n = dphi_X[n]  # tensor core of shape (batch_size, degree) * num_assets
 
-    grad_Vn1 = multi_derivative(V_n1, phi_X_n1, dphi_X_n1)  # (batch_size, num_assets)
-    sigma_n1 = model.sigma(X_n1, (n+1) * dt)  # (batch_size, num_assets, num_assets)
-    Z_n1 = np.einsum('ijk, ik -> ij', sigma_n1, grad_Vn1)  # (batch_size, num_assets)
-    h_n1 = model.h(X_n1, (n+1) * dt, Y_n1, Z_n1)  # (batch_size, )
+    noise_n1 = noise[:, n + 1, :]  # (batch_size, num_assets)
+    
+    V_nk = V_n1
+    Y_nk = Y_n1
+    for k in range(n_iter_implicit):
+        grand_Vnk = multi_derivative(V_nk, phi_X_n, dphi_X_n) # (batch_size, num_assets)
+        sigma_nk = model.sigma(X_n, n*dt) # (batch_size, num_assets, num_assets)
+        Z_nk = np.einsum('ijk, ik -> ij', sigma_nk, grand_Vnk) # (batch_size, num_assets)
+        h_nk = model.h(X_n, n*dt, Y_nk, Z_nk)
 
-    step_n1 = h_n1*dt + Y_n1 # (batch_size, )
-    V_n = multi_als(phi_X_n, step_n1, n_iter=n_iter, ranks=ranks, init_tt=V_n1)
-    V[n] = V_n
-    Y_n = fast_contract(V_n, phi_X_n)
+        # print(Z_nk.shape)
+        # print(model.sigma(X_n, n*dt).shape)
+        # print((np.sum(Z_nk * model.sigma(X_n, n*dt) * noise[:, n+1], axis=1)).shape)
+        # print(V_n1)
+        # print(h_nk)
+        step_nk = h_nk*dt + Y_n1 - np.sqrt(dt) * np.einsum('ij,ij->i', Z_nk, noise_n1)
 
-    Y[:, n] = Y_n
+        V_nk = multi_als(phi_X_n, step_nk, n_iter=n_iter, ranks=ranks, init_tt=V_nk)
+        Y_nk = fast_contract(V_nk, phi_X_n)
+
+    V[n] = V_nk
+    Y[:, n] = Y_nk
 
     step_times.append(time.perf_counter() - step_start_time)
 
     ground_prices = model.price(X_n, n*dt) # (batch_size, )
-    print("Mean reconstruction error at n:", f"{np.mean(np.abs(Y_n - ground_prices)):.2e}, Max reconstruction error at n:", f"{np.max(np.abs(Y_n - ground_prices)):.2e}")
+    print("Mean reconstruction error at n:", f"{np.mean(np.abs(Y_nk - ground_prices)):.2e}, Max reconstruction error at n:", f"{np.max(np.abs(Y_nk - ground_prices)):.2e}")
     print("Step time:", f"{time.perf_counter() - step_start_time:.2f}s\n")
 
-    relative_errors = np.abs(Y_n - ground_prices) / ground_prices
+    relative_errors = np.abs(Y_nk - ground_prices) / ground_prices
     mean_relative_errors.append(np.mean(relative_errors))
     max_relative_errors.append(np.max(relative_errors))
-
 
 end_time = time.perf_counter()
 
