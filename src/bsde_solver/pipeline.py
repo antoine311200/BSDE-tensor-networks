@@ -16,26 +16,26 @@ from bsde_solver.utils import flatten, fast_contract
 
 import time
 
-batch_size = 2000
+batch_size = 20000
 T = 1
 sigma = 0.4
 r = 0.05
 N = 100
-num_assets = 2
+num_assets = 4
 dt = T / N
 
-n_iter = 1
-rank = 1
+n_iter = 5
+rank = 2
 degree = 2
 shape = tuple([degree for _ in range(num_assets)])
 ranks = (1,) + (rank,) * (num_assets - 1) + (1,)
 
-# basis = LegendreBasis(degree)
-basis = PolynomialBasis(degree)
+basis = LegendreBasis(degree)
+# basis = PolynomialBasis(degree)
 
 # X0 = np.zeros(num_assets) # Hamilton-Jacobi-Bellman (HJB) initial condition
 # X0 = np.zeros(num_assets) # Allen-Cahn initial condition
-X0 = np.array(flatten([(1, 0.5) for _ in range(num_assets//2)])) # Black-Scholes initial condition
+X0 = np.array(flatten([(1, 0.5) for _ in range(num_assets//2)]))# Black-Scholes initial condition
 # X0 = -np.ones(num_assets) # Double-well HJB initial condition
 X0_batch = np.broadcast_to(X0, (batch_size, num_assets))
 
@@ -63,6 +63,9 @@ for n in range(N + 1):
     phi_X.append(phi_X_n)
     dphi_X.append(dphi_X_n)
     ddphi_X.append(ddphi_X_n)
+
+print(phi_X_n[0].view(np.ndarray).shape)
+print(phi_X_n[0].view(np.ndarray))
 
 Y = np.zeros((batch_size, N + 1))
 Y[:, -1] = model.g(X[:, -1])  # (batch_size, )
@@ -124,13 +127,13 @@ for n in range(N - 1, -1, -1):
     relative_errors.append(np.abs(price_n - np.mean(Y[:, n])) / price_n)
     errors.append(np.abs(price_n - np.mean(Y[:, n])))
 
-    # if num_assets < 10:
-    #     vt = (Y[:, n + 1] - Y[:, n]) / dt
-    #     vx = Z_n1
-    #     vxx = hessian(V_n, phi_X_n, dphi_X_n, ddphi_X[n], batch=True).transpose((2, 0, 1))
-    #     loss = pde_loss(n*dt, X_n, Y_n, vt, vx, vxx)
-    #     print("Mean PDE loss", loss.mean())
-    #     print("Mean abs PDE loss", np.abs(loss).mean())
+    if num_assets < 10:
+        vt = (Y[:, n + 1] - Y[:, n]) * dt
+        vx = Z_n1
+        vxx = hessian(V_n, phi_X_n, dphi_X_n, ddphi_X[n], batch=True).transpose((2, 0, 1))
+        loss = pde_loss(n*dt, X_n, Y_n, vt, vx, vxx)
+        print("Mean PDE loss", loss.mean())
+        print("Mean abs PDE loss", np.abs(loss).mean())
 
 print("End")
 

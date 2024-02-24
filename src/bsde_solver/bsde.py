@@ -50,6 +50,8 @@ class BlackScholes(BackwardSDE):
 
         def g(self, x):
             return np.linalg.norm(x, axis=1) ** 2
+            # Geometric mean
+            np.prod(x, axis=1)
 
         def price(self, X, t):
             return np.exp((self.r + self.sigma_**2)*(self.T-t)) * np.mean(self.g(X))
@@ -60,7 +62,7 @@ class MultiAssetGaussian(BackwardSDE):
         super().__init__(X0, delta_t, T)
 
         self.r = r
-        self.sigma = sigma
+        self.sigma_ = sigma
         self.rho = rho
         self.mu = mu
         self.S0 = S0
@@ -69,7 +71,7 @@ class MultiAssetGaussian(BackwardSDE):
         return self.r * x
 
     def sigma(self, x, t):
-        return self.sigma * x
+        return self.sigma_ * x
 
     def h(self, x, t, y, z):
         return -self.r * y

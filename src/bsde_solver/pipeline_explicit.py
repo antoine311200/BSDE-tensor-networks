@@ -16,16 +16,16 @@ from bsde_solver.utils import flatten, fast_contract
 
 import time
 
-batch_size = 2000
+batch_size = 20000
 T = 1
 sigma = 0.4
 r = 0.05
 N = 100
-num_assets = 2
+num_assets = 4
 dt = T / N
 
 n_iter = 5
-n_iter_implicit = 10
+n_iter_implicit = 3
 rank = 2
 degree = 2
 shape = tuple([degree for _ in range(num_assets)])
@@ -110,13 +110,9 @@ for n in range(N - 1, -1, -1):
         Z_nk = multi_derivative(V_nk, phi_X_n, dphi_X_n)
         h_nk = model.h(X_n, n*dt, Y_nk, Z_nk)
 
-        # print(Z_nk.shape)
-        # print(model.sigma(X_n, n*dt).shape)
-        # print((np.sum(Z_nk * model.sigma(X_n, n*dt) * noise[:, n+1], axis=1)).shape)
-        # print(V_n1)
-        # print(h_nk)
         step_nk = h_nk*dt + Y_n1 - (np.sum(Z_nk * model.sigma(X_n, n*dt) * noise[:, n+1], axis=1) * np.sqrt(dt))
 
+        Y_temp = Y_nk.view(np.ndarray).squeeze()
         V_nk = multi_als(phi_X_n, step_nk, n_iter=n_iter, ranks=ranks, init_tt=V_nk)
         Y_nk = fast_contract(V_nk, phi_X_n)
 
@@ -134,7 +130,7 @@ for n in range(N - 1, -1, -1):
     errors.append(np.abs(price_n - np.mean(Y[:, n])))
 
     if num_assets < 10:
-        vt = (Y[:, n + 1] - Y[:, n]) / dt
+        vt = (Y_temp - Y[:, n]) / dt
         vx = Z_nk
         vxx = hessian(V_nk, phi_X_n, dphi_X_n, ddphi_X[n], batch=True).transpose((2, 0, 1))
         loss = pde_loss(n*dt, X_n, Y_nk, vt, vx, vxx)
