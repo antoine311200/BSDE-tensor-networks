@@ -12,14 +12,14 @@ from bsde_solver.core.calculus.hessian import hessian
 from bsde_solver.core.optimisation.scalar_als import multi_als
 from bsde_solver.core.calculus.basis import LegendreBasis, PolynomialBasis
 from bsde_solver.loss import PDELoss
-from bsde_solver.utils import flatten, fast_contract
+from bsde_solver.utils import flatten, fast_contract, fast_contract_2
 
 import time
 
-batch_size = 5000
+batch_size = 1000
 T = 1
 N = 10
-num_assets = 10
+num_assets = 2
 dt = T / N
 
 n_iter = 5
@@ -61,7 +61,8 @@ V_N = multi_als(phi_X[-1], Y[:, -1], n_iter=n_iter, ranks=ranks)
 V[-1] = V_N
 print("Time to compute V_N:", f"{time.perf_counter() - start_time:.2f}s")
 
-check_V = fast_contract(V_N, phi_X[-1])
+check_V = fast_contract_2(V_N, phi_X[-1])
+
 error = check_V - Y[:, -1]
 print(f"Mean reconstruction error at N: {np.mean(np.abs(error)):.2e}, Max reconstruction error at N: {np.max(np.abs(error)):.2e}\n")
 
@@ -100,7 +101,7 @@ for n in range(N - 1, -1, -1):
     step_n1 = h_n1*dt + Y_n1 # (batch_size, )
     V_n = multi_als(phi_X_n, step_n1, n_iter=n_iter, ranks=ranks, init_tt=V_n1)
     V[n] = V_n
-    Y_n = fast_contract(V_n, phi_X_n)
+    Y_n = fast_contract_2(V_n, phi_X_n)
 
     Y[:, n] = Y_n
 
@@ -153,4 +154,48 @@ plt.xlabel("Time")
 plt.ylabel("Relative error")
 plt.title(f"Relative errors | {configurations}")
 plt.legend()
+plt.show()
+
+for n in range(N + 1):
+    cores = [np.array(core) for core in V[n].cores.values()]
+
+
+    print([core.shape for core in cores])
+
+    cores = [core.reshape(degree, -1) for core in cores]
+
+    plt.figure(figsize=(10, 5))
+    plt.subplot(1, 2, 1)
+    plt.imshow(cores[0])
+    plt.title("Core 1")
+    plt.subplot(1, 2, 2)
+    plt.imshow(cores[1])
+    plt.title("Core 2")
+    plt.suptitle(f"Core shapes at n={n} | {configurations}")
+plt.show()
+
+
+
+from bsde_solver.utils import compute_solution
+
+
+print("=====================================\n")
+
+
+discretization = 5
+x = np.linspace(-10, 10, discretization)
+X = np.tile(x, (num_assets, 1)).T
+X[:, 1] = 2 * X[:, 1]
+V0 = V[0]
+
+Ys = compute_solution(X, V0, basis)
+
+# print(Ys.shape)
+# print(Ys)
+
+plt.figure(figsize=(10, 5))
+plt.plot(x, Ys)
+plt.xlabel("x")
+plt.ylabel("Y")
+plt.title(f"Solution at 0 | {configurations}")
 plt.show()
