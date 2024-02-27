@@ -42,7 +42,8 @@ class BlackScholes(BackwardSDE):
             return np.zeros_like(x)
 
         def sigma(self, x, t):
-            return self.sigma_ * np.diag(x)
+            diag = np.einsum('bi,ij->bij', x, np.eye(x.shape[1]))
+            return self.sigma_ * diag
 
         def h(self, x, t, y, z):
             return -self.r * (y - np.sum(x * z, axis=1))
@@ -86,8 +87,8 @@ class HJB(BackwardSDE):
         return np.zeros_like(x) # (b, d)
 
     def sigma(self, x, t): # (b, d), (1, )
-        return self.sigma_ * np.tile(np.eye(x.shape[1]), (x.shape[0], 1, 1)) # (b, d)
-    
+        return self.sigma_ * np.broadcast_to(np.eye(self.dim), (x.shape[0], self.dim, self.dim)) # (b, d, d)
+
     def h(self, x, t, y, z): # (b, d), (1, ), (b, 1), (b, d)
         return - 0.5 * np.sum(z**2, axis=1) # (b, )
 

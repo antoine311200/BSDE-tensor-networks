@@ -22,22 +22,26 @@ N = 100
 num_assets = 10
 dt = T / N
 
-n_iter = 5
+n_iter = 2
 rank = 2
-degree = 2
+degree = 3
 shape = tuple([degree for _ in range(num_assets)])
 ranks = (1,) + (rank,) * (num_assets - 1) + (1,)
 
 basis = PolynomialBasis(degree)
 
-xo = np.zeros(num_assets)
+# xo = np.zeros(num_assets)
+xo = np.array(flatten([(1, 0.5) for _ in range(num_assets//2)])) # Black-Scholes initial condition
 X0 = np.tile(xo, (batch_size, 1))
 
-model = HJB(X0=X0, delta_t=dt, T=T, sigma=np.sqrt(2))
+# model = HJB(X0=X0, delta_t=dt, T=T, sigma=np.sqrt(2))
+sigma = 0.4
+r = 0.05
+model = BlackScholes(X0, dt, T, r, sigma)
 configurations = f"{num_assets} assets | {N} steps | {batch_size} batch size | {n_iter} iterations | {degree} degree | {rank} rank"
 
 # Compute trajectories
-X, noise = generate_trajectories(X0, T, N, model) # (batch_size, N + 1, dim), (batch_size, N + 1, dim) (xi[0] is not used)
+X, noise = generate_trajectories(X0, N, model) # (batch_size, N + 1, dim), (batch_size, N + 1, dim) (xi[0] is not used)
 
 phi_X = []
 dphi_X = []
