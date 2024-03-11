@@ -153,3 +153,6 @@ class TensorCore(np.ndarray):
         new_indices = ('batch',) + tensors[0].indices
         new_array = np.stack([tensor for tensor in tensors], axis=0)
         return TensorCore(new_array, indices=new_indices)
+
+    def size(self, axe_name):
+        return self.shape_info[self.indices.index(axe_name)]

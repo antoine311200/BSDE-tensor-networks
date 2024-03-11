@@ -9,7 +9,7 @@ from bsde_solver.core.tensor.tensor_train import BatchTensorTrain
 from bsde_solver.core.tensor.tensor_core import TensorCore
 from bsde_solver.core.calculus.derivative import batch_derivative, multi_derivative
 from bsde_solver.core.calculus.hessian import hessian
-from bsde_solver.core.optimisation.scalar_als import multi_als
+from bsde_solver.core.optimisation.als import ALS
 from bsde_solver.core.calculus.basis import LegendreBasis, PolynomialBasis
 from bsde_solver.loss import PDELoss
 from bsde_solver.utils import flatten, fast_contract
@@ -50,7 +50,7 @@ pde_loss = PDELoss(model)
 configurations = f"{num_assets} assets | {N} steps | {batch_size} batch size | {n_iter} iterations | {degree} degree | {rank} rank"
 
 # Compute trajectories
-X, noise = generate_trajectories(batch_size, N, num_assets, X0, model, dt) # (batch_size, N + 1, num_assets)
+X, noise = generate_trajectories(X0_batch, N, model) # (batch_size, N + 1, num_assets)
 
 phi_X = []
 dphi_X = []
@@ -70,7 +70,7 @@ Y[:, -1] = model.g(X[:, -1])  # (batch_size, )
 
 start_time = time.perf_counter()
 V = [None for _ in range(N + 1)]
-V_N = multi_als(phi_X[-1], Y[:, -1], n_iter=n_iter, ranks=ranks)
+V_N = ALS(phi_X[-1], Y[:, -1], n_iter=n_iter, ranks=ranks)
 V[-1] = V_N
 print("Time to compute V_N:", f"{time.perf_counter() - start_time:.2f}s")
 
@@ -117,7 +117,7 @@ for n in range(N - 1, -1, -1):
         # print(h_nk)
         step_nk = h_nk*dt + Y_n1 - (np.sum(Z_nk * model.sigma(X_n, n*dt) * noise[:, n+1], axis=1) * np.sqrt(dt))
 
-        V_nk = multi_als(phi_X_n, step_nk, n_iter=n_iter, ranks=ranks, init_tt=V_nk)
+        V_nk = ALS(phi_X_n, step_nk, n_iter=n_iter, ranks=ranks, init_tt=V_nk)
         Y_nk = fast_contract(V_nk, phi_X_n)
 
     V[n] = V_nk
