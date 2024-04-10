@@ -11,7 +11,8 @@ from bsde_solver.core.tensor.tensor_train import BatchTensorTrain
 from bsde_solver.core.tensor.tensor_core import TensorCore
 from bsde_solver.core.calculus.derivative import batch_derivative, multi_derivative
 from bsde_solver.core.calculus.hessian import hessian
-from bsde_solver.core.optimisation.als import ALS
+from bsde_solver.core.optimisation.als import ALS, ALS_regularized
+from bsde_solver.core.optimisation.mals import MALS
 from bsde_solver.core.calculus.basis import LegendreBasis, PolynomialBasis
 from bsde_solver.loss import PDELoss
 from bsde_solver.utils import flatten, fast_contract
@@ -20,15 +21,23 @@ import time
 profiler = cProfile.Profile()
 profiler.enable()
 
+mode = "MALS"
+if mode == "ALS":
+    optimizer = ALS
+elif mode == "SALSA":
+    optimizer = ALS_regularized
+elif mode == "MALS":
+    optimizer = MALS
+
 batch_size = 2000
 T = 1
 N = 10
 num_assets = 10
 dt = T / N
 
-n_iter = 2
+n_iter = 5
 rank = 2
-degree = 5
+degree = 3
 shape = tuple([degree for _ in range(num_assets)])
 ranks = (1,) + (rank,) * (num_assets - 1) + (1,)
 
@@ -74,7 +83,7 @@ Y[:, -1] = model.g(X[:, -1])  # (batch_size, )
 
 start_time = time.perf_counter()
 V = [None for _ in range(N + 1)]
-V_N = ALS(phi_X[-1], Y[:, -1], n_iter=n_iter, ranks=ranks)
+V_N = optimizer(phi_X[-1], Y[:, -1], n_iter=n_iter, ranks=ranks)
 V[-1] = V_N
 print("Time to compute V_N:", f"{time.perf_counter() - start_time:.2f}s")
 
@@ -120,7 +129,7 @@ for n in range(N - 1, -1, -1):
 
     step_n1 = h_n1*dt + Y_n1 #- np.einsum('ij,ij->i', Z_n1, noise) * np.sqrt(dt)
     # np.sum(Z_n1 @ model.sigma(X_n1, (n+1) *dt) * noise, axis=1) * np.sqrt(dt) + Y_n1
-    V_n = ALS(phi_X_n, step_n1, n_iter=n_iter, ranks=ranks, init_tt=V_n1)
+    V_n = optimizer(phi_X_n, step_n1, n_iter=n_iter, ranks=ranks, init_tt=V_n1)
     V[n] = V_n
     Y_n = fast_contract(V_n, phi_X_n)
 
@@ -200,7 +209,7 @@ for j in range(len(simulation_indices)):
 profiler.disable()
 
 # Step 6: Print the results
-stats = Stats(profiler)
-stats.sort_stats('cumtime').print_stats(10)
+# stats = Stats(profiler)
+# stats.sort_stats('cumtime').print_stats(10)
 # profiler.sort_stats('cumulative').print_stats(10)
 # profiler.print_stats(sort='cumtime')
