@@ -173,7 +173,7 @@ def ALS_regularized(
             core_curr = tt.cores[f"core_{j}"]
             gamma, theta = None, None
 
-            print("Core:", j, core_curr)
+            # print("Core:", j, core_curr)
 
             if j != 0:
                 core_prev = tt.cores[f"core_{j-1}"]
@@ -259,8 +259,8 @@ def ALS_regularized(
         omega = max(min(omega / freq_omega, max(eta, np.sqrt(eta))), (omega - eta) / omega)
         min_sv = max(min(0.2*omega, 0.2*(omega - eta) / omega), 0)
 
-        print("Error:", eta, eval.shape)
-        print("Omega:", omega)
-        print("Min SV:", min_sv)
+        # print("Error:", eta, eval.shape)
+        # print("Omega:", omega)
+        # print("Min SV:", min_sv)
 
     return tt
