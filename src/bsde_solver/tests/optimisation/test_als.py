@@ -9,12 +9,12 @@ from time import perf_counter
 
 if __name__ == "__main__":
 
-    seed = 21
+    seed = 210
     degree = 3
-    num_assets = 5
+    num_assets = 6
 
     shape = [degree for _ in range(num_assets)]
-    dim = 1
+    dim = 2
     ranks = (1, ) + (dim,) * (num_assets - 1) + (1, )
 
     def poly(x, degree=10):
@@ -28,7 +28,7 @@ if __name__ == "__main__":
 
     np.random.seed(seed)
     for i in range(n_simulations):
-        x = (np.random.rand(num_assets)-1/2)*10
+        x = (np.random.rand(num_assets)-1/2)
         phi = [TensorCore(poly(x[i], degree=degree), name=f"phi_{i+1}", indices=(f"m_{i+1}",)) for i in range(num_assets)]
         dphi = [TensorCore(poly_derivative(x[i], degree=degree), name=f"dphi_{i+1}", indices=(f"m_{i+1}",),) for i in range(num_assets)]
 
@@ -37,7 +37,8 @@ if __name__ == "__main__":
         dphis.append(dphi)
 
     # Relu of x
-    b = np.maximum(0, np.mean(np.array(xs), axis=1))
+    # b = np.maximum(0, np.mean(np.array(xs), axis=1))
+    b = np.linalg.norm(np.array(xs), axis=1) ** 2
     # b = np.log(1/2+1/2*np.linalg.norm(np.array(xs)**2, axis=1))
 
     #################### Single ALS ####################
@@ -83,7 +84,8 @@ if __name__ == "__main__":
     start_time_batch = perf_counter()
     # ALS_result = ALS_regularized(phis, b, n_iter=25, ranks=ranks)
     # ALS_result = ALS(phis, b, n_iter=25, ranks=ranks)
-    ALS_result = ALS(phis, b, n_iter=50, ranks=ranks)
+    ALS_result = MALS(phis, b, n_iter=50, ranks=ranks, threshold=1e-6, max_rank=10)
+    # ALS_result = ALS(phis, b, n_iter=50, ranks=ranks)
     end_time_batch = perf_counter() - start_time_batch
     print("Time:", end_time_batch)
 

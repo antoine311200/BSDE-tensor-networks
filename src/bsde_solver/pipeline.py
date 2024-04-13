@@ -1,6 +1,7 @@
 import numpy as np
 import cProfile
 from pstats import Stats
+from functools import partial
 
 import matplotlib.pyplot as plt
 
@@ -27,16 +28,16 @@ if mode == "ALS":
 elif mode == "SALSA":
     optimizer = ALS_regularized
 elif mode == "MALS":
-    optimizer = MALS
+    optimizer = partial(MALS, threshold=1e-3)
 
 batch_size = 2000
 T = 1
 N = 10
-num_assets = 10
+num_assets = 6
 dt = T / N
 
-n_iter = 5
-rank = 2
+n_iter = 20
+rank = 3
 degree = 3
 shape = tuple([degree for _ in range(num_assets)])
 ranks = (1,) + (rank,) * (num_assets - 1) + (1,)
@@ -87,10 +88,13 @@ V_N = optimizer(phi_X[-1], Y[:, -1], n_iter=n_iter, ranks=ranks)
 V[-1] = V_N
 print("Time to compute V_N:", f"{time.perf_counter() - start_time:.2f}s")
 
-check_V = fast_contract(V_N, phi_X[-1])
+check_V = fast_contract(V_N, phi_X[-1]).view(np.ndarray).squeeze()
 
 print("Mean reconstruction error at N:", f"{np.abs(np.mean(check_V - Y[:, -1])):.2e}")
 print("Prediction at N:", f"{np.mean(Y[:, -1]):.4f} | Value at N:", f"{np.mean(check_V):.4f}")
+
+import sys
+sys.exit()
 
 print("Compute true prices")
 prices = []
