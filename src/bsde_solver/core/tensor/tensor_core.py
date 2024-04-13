@@ -45,6 +45,10 @@ class TensorCore(np.ndarray):
     def _generate_indices(shape_info):
         return tuple(f"axis_{i}" for i in range(len(shape_info)))
 
+    @staticmethod
+    def dummy(shape_info, indices=None, name=None):
+        return TensorCore(np.zeros(shape_info), indices=indices, name=name)
+
     def like(input_array, like_core: 'TensorCore' = None, name=None):
         return TensorCore(input_array.reshape(like_core.shape),
             indices=like_core.indices, name=like_core.name if name is None else name
