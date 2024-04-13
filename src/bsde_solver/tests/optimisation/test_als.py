@@ -1,6 +1,7 @@
 from bsde_solver.core.tensor.tensor_core import TensorCore
 from bsde_solver.core.tensor.tensor_network import TensorNetwork
 from bsde_solver.core.optimisation.als import ALS, ALS_regularized
+from bsde_solver.core.optimisation.mals import MALS
 from bsde_solver.utils import fast_contract
 
 import numpy as np
@@ -9,18 +10,18 @@ from time import perf_counter
 if __name__ == "__main__":
 
     seed = 5454
-    degree = 5
-    num_assets = 10
+    degree = 3
+    num_assets = 5
 
     shape = [degree for _ in range(num_assets)]
-    dim = 3
+    dim = 2
     ranks = (1, ) + (dim,) * (num_assets - 1) + (1, )
 
     def poly(x, degree=10):
-        return np.array([x**i for i in range(degree)]).T# + [np.log(1/2+1/2*x**2)]).T
+        return np.array([x**i for i in range(degree)] + [np.log(1/2+1/2*x**2)]).T
 
     def poly_derivative(x, degree=10):
-        return np.array([i * x ** (i - 1) for i in range(degree)]).T
+        return np.array([i * x ** (i - 1) for i in range(degree)] + [2*x/(1+x**2)]).T
 
     n_simulations = 1000
     xs, phis, dphis = [], [], []
@@ -81,7 +82,9 @@ if __name__ == "__main__":
 
     print(f"Alternating Least Squares (n_simulations={n_simulations}, degree={degree}, num_assets={num_assets}, ranks={dim})")
     start_time_batch = perf_counter()
-    ALS_result = ALS_regularized(phis, b, n_iter=50, ranks=ranks)
+    # ALS_result = ALS_regularized(phis, b, n_iter=25, ranks=ranks)
+    # ALS_result = ALS(phis, b, n_iter=25, ranks=ranks)
+    ALS_result = MALS(phis, b, n_iter=25, ranks=ranks)
     end_time_batch = perf_counter() - start_time_batch
     print("Time:", end_time_batch)
 
