@@ -1,34 +1,34 @@
-from bsde_solver.core.tensor.tensor_train import BatchTensorTrain, TensorTrain, left_unfold, right_unfold
 from bsde_solver.core.tensor.tensor_core import TensorCore
 from bsde_solver.core.tensor.tensor_network import TensorNetwork
-from bsde_solver.core.optimisation.scalar_als import scalar_ALS, batch_scalar_ALS, multi_als
-from bsde_solver.utils import batch_qr
+from bsde_solver.core.optimisation.als import ALS, ALS_regularized
+from bsde_solver.core.optimisation.mals import MALS
+from bsde_solver.utils import fast_contract
 
 import numpy as np
 from time import perf_counter
 
 if __name__ == "__main__":
 
-    seed = 5454
+    seed = 210
     degree = 3
-    num_assets = 3
+    num_assets = 6
 
     shape = [degree for _ in range(num_assets)]
-    dim = 3
+    dim = 2
     ranks = (1, ) + (dim,) * (num_assets - 1) + (1, )
 
     def poly(x, degree=10):
-        return np.array([x**i for i in range(degree)] + [np.log(1/2+1/2*x**2)]).T
+        return np.array([x**i for i in range(degree)]).T#] + [np.log(1/2+1/2*x**2)
 
     def poly_derivative(x, degree=10):
-        return np.array([i * x ** (i - 1) for i in range(degree)]).T
+        return np.array([i * x ** (i - 1) for i in range(degree)]).T #] + [2*x/(1+x**2)
 
-    n_simulations = 10000
+    n_simulations = 1000
     xs, phis, dphis = [], [], []
 
     np.random.seed(seed)
     for i in range(n_simulations):
-        x = np.random.rand(num_assets)-1/2
+        x = (np.random.rand(num_assets)-1/2)
         phi = [TensorCore(poly(x[i], degree=degree), name=f"phi_{i+1}", indices=(f"m_{i+1}",)) for i in range(num_assets)]
         dphi = [TensorCore(poly_derivative(x[i], degree=degree), name=f"dphi_{i+1}", indices=(f"m_{i+1}",),) for i in range(num_assets)]
 
@@ -38,7 +38,8 @@ if __name__ == "__main__":
 
     # Relu of x
     # b = np.maximum(0, np.mean(np.array(xs), axis=1))
-    b = np.log(1/2+1/2*np.linalg.norm(np.array(xs)**2, axis=1))
+    b = np.linalg.norm(np.array(xs), axis=1) ** 2
+    # b = np.log(1/2+1/2*np.linalg.norm(np.array(xs)**2, axis=1))
 
     #################### Single ALS ####################
 
@@ -81,15 +82,20 @@ if __name__ == "__main__":
 
     print(f"Alternating Least Squares (n_simulations={n_simulations}, degree={degree}, num_assets={num_assets}, ranks={dim})")
     start_time_batch = perf_counter()
-    multi_als_result = multi_als(phis, b, n_iter=1, ranks=ranks)
+    # ALS_result = ALS_regularized(phis, b, n_iter=25, ranks=ranks)
+    # ALS_result = ALS(phis, b, n_iter=25, ranks=ranks)
+    ALS_result = MALS(phis, b, n_iter=50, ranks=ranks, threshold=1e-6, max_rank=10)
+    # ALS_result = ALS(phis, b, n_iter=50, ranks=ranks)
     end_time_batch = perf_counter() - start_time_batch
     print("Time:", end_time_batch)
 
     batch_phis = TensorNetwork(cores=phis)
-    result = TensorNetwork(cores=[multi_als_result, batch_phis], names=["tt", "phi"]).contract(batch=True).view(np.ndarray).squeeze()
+    result = fast_contract(ALS_result, batch_phis).view(np.ndarray).squeeze()
 
     l2 = np.linalg.norm(result - b)
     l1 = np.linalg.norm(result - b, ord=1)
     print("Reconstruction error (total)   L2:", round(l2, 4), "   L1:", round(l1, 4))
     print("Mean reconstruction error ", round(np.mean(np.abs(result - b)), 4))
     print("Maximum reconstruction error:", round(np.max(np.abs(result - b)), 4))
+    print("Ground truth samples:", [round(c, 3) for c in b[:10]])
+    print("Reconstruction samples:", [round(c, 3) for c in result[:10]])

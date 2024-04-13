@@ -1,4 +1,7 @@
 import numpy as np
+import cProfile
+from pstats import Stats
+from functools import partial
 
 import matplotlib.pyplot as plt
 
@@ -9,24 +12,33 @@ from bsde_solver.core.tensor.tensor_train import BatchTensorTrain
 from bsde_solver.core.tensor.tensor_core import TensorCore
 from bsde_solver.core.calculus.derivative import batch_derivative, multi_derivative
 from bsde_solver.core.calculus.hessian import hessian
-from bsde_solver.core.optimisation.scalar_als import multi_als
+from bsde_solver.core.optimisation.als import ALS, ALS_regularized
+from bsde_solver.core.optimisation.mals import MALS
 from bsde_solver.core.calculus.basis import LegendreBasis, PolynomialBasis
 from bsde_solver.loss import PDELoss
 from bsde_solver.utils import flatten, fast_contract
 
 import time
+profiler = cProfile.Profile()
+profiler.enable()
+
+mode = "MALS"
+if mode == "ALS":
+    optimizer = ALS
+elif mode == "SALSA":
+    optimizer = ALS_regularized
+elif mode == "MALS":
+    optimizer = partial(MALS, threshold=1e-3)
 
 batch_size = 2000
 T = 1
-sigma = 0.4
-r = 0.05
-N = 100
-num_assets = 2
+N = 10
+num_assets = 6
 dt = T / N
 
-n_iter = 1
-rank = 1
-degree = 2
+n_iter = 20
+rank = 3
+degree = 3
 shape = tuple([degree for _ in range(num_assets)])
 ranks = (1,) + (rank,) * (num_assets - 1) + (1,)
 
@@ -37,11 +49,14 @@ basis = PolynomialBasis(degree)
 # X0 = np.zeros(num_assets) # Allen-Cahn initial condition
 X0 = np.array(flatten([(1, 0.5) for _ in range(num_assets//2)])) # Black-Scholes initial condition
 # X0 = -np.ones(num_assets) # Double-well HJB initial condition
+
 X0_batch = np.broadcast_to(X0, (batch_size, num_assets))
 
+sigma = 0.4
+r = 0.05
 model = BlackScholes(X0, dt, T, r, sigma)
 # model = AllenCahn(X0, dt, T)
-# model = HJB(X0, dt, T, sigma=np.sqrt(2))
+# model = HJB(X0_batch, dt, T, sigma=np.sqrt(2))
 # nu = np.array([0.05 for _ in range(num_assets)])
 #model =DoubleWellHJB(X0, dt, T, nu)
 pde_loss = PDELoss(model)
@@ -49,7 +64,7 @@ pde_loss = PDELoss(model)
 configurations = f"{num_assets} assets | {N} steps | {batch_size} batch size | {n_iter} iterations | {degree} degree | {rank} rank"
 
 # Compute trajectories
-X, noise = generate_trajectories(batch_size, N, num_assets, X0, model, dt) # (batch_size, N + 1, num_assets)
+X, noise = generate_trajectories(X0_batch, N, model) # (batch_size, N + 1, num_assets)
 
 phi_X = []
 dphi_X = []
@@ -69,16 +84,25 @@ Y[:, -1] = model.g(X[:, -1])  # (batch_size, )
 
 start_time = time.perf_counter()
 V = [None for _ in range(N + 1)]
-V_N = multi_als(phi_X[-1], Y[:, -1], n_iter=n_iter, ranks=ranks)
+V_N = optimizer(phi_X[-1], Y[:, -1], n_iter=n_iter, ranks=ranks)
 V[-1] = V_N
 print("Time to compute V_N:", f"{time.perf_counter() - start_time:.2f}s")
 
-check_V = fast_contract(V_N, phi_X[-1])
+check_V = fast_contract(V_N, phi_X[-1]).view(np.ndarray).squeeze()
 
 print("Mean reconstruction error at N:", f"{np.abs(np.mean(check_V - Y[:, -1])):.2e}")
 print("Prediction at N:", f"{np.mean(Y[:, -1]):.4f} | Value at N:", f"{np.mean(check_V):.4f}")
 
-print("Start")
+import sys
+sys.exit()
+
+print("Compute true prices")
+prices = []
+
+for n in range(N + 1):
+    prices.append(model.price(X[:, n, :], n*dt))
+
+print("Start optimisation")
 start_time = time.perf_counter()
 
 step_times = []
@@ -109,7 +133,7 @@ for n in range(N - 1, -1, -1):
 
     step_n1 = h_n1*dt + Y_n1 #- np.einsum('ij,ij->i', Z_n1, noise) * np.sqrt(dt)
     # np.sum(Z_n1 @ model.sigma(X_n1, (n+1) *dt) * noise, axis=1) * np.sqrt(dt) + Y_n1
-    V_n = multi_als(phi_X_n, step_n1, n_iter=n_iter, ranks=ranks, init_tt=V_n1)
+    V_n = optimizer(phi_X_n, step_n1, n_iter=n_iter, ranks=ranks, init_tt=V_n1)
     V[n] = V_n
     Y_n = fast_contract(V_n, phi_X_n)
 
@@ -117,14 +141,17 @@ for n in range(N - 1, -1, -1):
 
     step_times.append(time.perf_counter() - step_start_time)
 
-    price_n = model.price(X_n, n*dt)
-    print("Mean reconstruction error at n:", f"{np.abs(np.mean(price_n - Y[:, n])):.2e}")
+    # price_n = model.price(X_n, n*dt)
+    # print("Mean reconstruction error at n:", f"{np.abs(np.mean(price_n - Y[:, n])):.2e}")
+    # print("Mean reconstruction error at n:", f"{np.mean(np.abs(Y_n - price_n)):.2e}, Max reconstruction error at n:", f"{np.max(np.abs(Y_n - price_n)):.2e}")
+
+    print("Mean reconstruction error at n:", f"{np.mean(np.abs(prices[n] - Y_n)):.2e}, Max reconstruction error at n:", f"{np.max(np.abs(prices[n] - Y_n)):.2e}")
     print("Step time:", f"{time.perf_counter() - step_start_time:.2f}s")
 
-    relative_errors.append(np.abs(price_n - np.mean(Y[:, n])) / price_n)
-    errors.append(np.abs(price_n - np.mean(Y[:, n])))
+    # relative_errors.append(np.abs(price_n - np.mean(Y[:, n])) / price_n)
+    # errors.append(np.abs(price_n - np.mean(Y[:, n])))
 
-    # if num_assets < 10:
+    # if num_assets <= 10:
     #     vt = (Y[:, n + 1] - Y[:, n]) / dt
     #     vx = Z_n1
     #     vxx = hessian(V_n, phi_X_n, dphi_X_n, ddphi_X[n], batch=True).transpose((2, 0, 1))
@@ -161,24 +188,32 @@ for j in range(len(simulation_indices)):
     plt.plot(predicted_prices, label=f"Price #{j}", linestyle="--", color=colormap(j / n_simulations), lw=0.8)
     plt.plot(ground_prices, label=f"Ground Price #{j}", linestyle="-", color=colormap(j / n_simulations), lw=0.8)
 
-plt.scatter([0], [np.mean(Y[:, 0])], color="red", label="Predicted Price at 0", marker="x")
-plt.scatter([0], [np.mean(model.price(X0_batch, 0))], color="red", label="Ground Price at 0", marker="o")
-plt.xlabel("Time")
-plt.ylabel("Price")
-plt.title(f"Evolutions of prices | {configurations}")
-plt.legend()
-plt.show()
+# plt.scatter([0], [np.mean(Y[:, 0])], color="red", label="Predicted Price at 0", marker="x")
+# plt.scatter([0], [np.mean(model.price(X0_batch, 0))], color="red", label="Ground Price at 0", marker="o")
+# plt.xlabel("Time")
+# plt.ylabel("Price")
+# plt.title(f"Evolutions of prices | {configurations}")
+# plt.legend()
+# plt.show()
 
-plt.figure(figsize=(10, 5))
-plt.plot(np.arange(N + 1), relative_errors[::-1])
-plt.xlabel("Time")
-plt.ylabel("Relative error")
-plt.title(f"Relative error | {configurations}")
-plt.show()
+# plt.figure(figsize=(10, 5))
+# plt.plot(np.arange(N + 1), relative_errors[::-1])
+# plt.xlabel("Time")
+# plt.ylabel("Relative error")
+# plt.title(f"Relative error | {configurations}")
+# plt.show()
 
-plt.figure(figsize=(10, 5))
+# plt.figure(figsize=(10, 5))
 
-plt.xlabel("Time")
-plt.ylabel("Error")
-plt.title(f"Error | {configurations}")
-plt.show()
+# plt.xlabel("Time")
+# plt.ylabel("Error")
+# plt.title(f"Error | {configurations}")
+# plt.show()
+
+profiler.disable()
+
+# Step 6: Print the results
+# stats = Stats(profiler)
+# stats.sort_stats('cumtime').print_stats(10)
+# profiler.sort_stats('cumulative').print_stats(10)
+# profiler.print_stats(sort='cumtime')

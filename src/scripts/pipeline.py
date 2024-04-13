@@ -18,39 +18,30 @@ import time
 
 batch_size = 2000
 T = 1
-sigma = 0.4
-r = 0.05
 N = 100
-num_assets = 2
+num_assets = 10
 dt = T / N
 
-n_iter = 5
-n_iter_implicit = 10
+n_iter = 2
 rank = 2
-degree = 2
+degree = 3
 shape = tuple([degree for _ in range(num_assets)])
 ranks = (1,) + (rank,) * (num_assets - 1) + (1,)
 
-# basis = LegendreBasis(degree)
 basis = PolynomialBasis(degree)
 
-# X0 = np.zeros(num_assets) # Hamilton-Jacobi-Bellman (HJB) initial condition
-# X0 = np.zeros(num_assets) # Allen-Cahn initial condition
-X0 = np.array(flatten([(1, 0.5) for _ in range(num_assets//2)])) # Black-Scholes initial condition
-# X0 = -np.ones(num_assets) # Double-well HJB initial condition
-X0_batch = np.broadcast_to(X0, (batch_size, num_assets))
+# xo = np.zeros(num_assets)
+xo = np.array(flatten([(1, 0.5) for _ in range(num_assets//2)])) # Black-Scholes initial condition
+X0 = np.tile(xo, (batch_size, 1))
 
+# model = HJB(X0=X0, delta_t=dt, T=T, sigma=np.sqrt(2))
+sigma = 0.4
+r = 0.05
 model = BlackScholes(X0, dt, T, r, sigma)
-# model = AllenCahn(X0, dt, T)
-# model = HJB(X0, dt, T, sigma=np.sqrt(2))
-# nu = np.array([0.05 for _ in range(num_assets)])
-#model =DoubleWellHJB(X0, dt, T, nu)
-pde_loss = PDELoss(model)
-
 configurations = f"{num_assets} assets | {N} steps | {batch_size} batch size | {n_iter} iterations | {degree} degree | {rank} rank"
 
 # Compute trajectories
-X, noise = generate_trajectories(X0_batch, N, model) # (batch_size, N + 1, num_assets)
+X, noise = generate_trajectories(X0, N, model) # (batch_size, N + 1, dim), (batch_size, N + 1, dim) (xi[0] is not used)
 
 phi_X = []
 dphi_X = []
@@ -76,18 +67,20 @@ print("Time to compute V_N:", f"{time.perf_counter() - start_time:.2f}s")
 
 check_V = fast_contract(V_N, phi_X[-1])
 
-print("Mean reconstruction error at N:", f"{np.abs(np.mean(check_V - Y[:, -1])):.2e}")
-print("Prediction at N:", f"{np.mean(Y[:, -1]):.4f} | Value at N:", f"{np.mean(check_V):.4f}")
+error = check_V - Y[:, -1]
+print(f"Mean reconstruction error at N: {np.mean(np.abs(error)):.2e}, Max reconstruction error at N: {np.max(np.abs(error)):.2e}\n")
 
-print("Start")
 start_time = time.perf_counter()
 
 step_times = []
-relative_errors = []
-errors = []
+mean_relative_errors = []
+max_relative_errors = []
+
+mean_relative_errors.append(np.mean(np.abs(error)))
+max_relative_errors.append(np.max(np.abs(error)))
 
 for n in range(N - 1, -1, -1):
-    print("Step:", n)
+    print(f"Step: {N - n}/{N}")
     step_start_time = time.perf_counter()
     # Compute Y = V_n+1(X_n+1)
     # Compute Z = grad_x V_n+1(X_n+1)
@@ -104,59 +97,39 @@ for n in range(N - 1, -1, -1):
     phi_X_n = phi_X[n]  # tensor core of shape (batch_size, degree) * num_assets
     dphi_X_n = dphi_X[n]  # tensor core of shape (batch_size, degree) * num_assets
 
-    V_nk = V_n1
-    Y_nk = Y_n1
-    for k in range(n_iter_implicit):
-        Z_nk = multi_derivative(V_nk, phi_X_n, dphi_X_n)
-        h_nk = model.h(X_n, n*dt, Y_nk, Z_nk)
+    grad_Vn1 = multi_derivative(V_n1, phi_X_n1, dphi_X_n1)  # (batch_size, num_assets)
+    sigma_n1 = model.sigma(X_n1, (n+1) * dt)  # (batch_size, num_assets, num_assets)
+    Z_n1 = np.einsum('ijk, ik -> ij', sigma_n1, grad_Vn1)  # (batch_size, num_assets)
+    h_n1 = model.h(X_n1, (n+1) * dt, Y_n1, Z_n1)  # (batch_size, )
 
-        # print(Z_nk.shape)
-        # print(model.sigma(X_n, n*dt).shape)
-        # print((np.sum(Z_nk * model.sigma(X_n, n*dt) * noise[:, n+1], axis=1)).shape)
-        # print(V_n1)
-        # print(h_nk)
-        step_nk = h_nk*dt + Y_n1 - (np.sum(Z_nk * model.sigma(X_n, n*dt) * noise[:, n+1], axis=1) * np.sqrt(dt))
+    step_n1 = h_n1*dt + Y_n1 # (batch_size, )
+    V_n = ALS(phi_X_n, step_n1, n_iter=n_iter, ranks=ranks, init_tt=V_n1)
+    V[n] = V_n
+    Y_n = fast_contract(V_n, phi_X_n)
 
-        V_nk = ALS(phi_X_n, step_nk, n_iter=n_iter, ranks=ranks, init_tt=V_nk)
-        Y_nk = fast_contract(V_nk, phi_X_n)
-
-    V[n] = V_nk
-    Y[:, n] = Y_nk.view(np.ndarray).squeeze()
+    Y[:, n] = Y_n
 
     step_times.append(time.perf_counter() - step_start_time)
 
-    price_n = model.price(X_n, n*dt)
-    # print("Mean reconstruction error at n:", f"{np.abs(np.mean(price_n - Y[:, n])):.2e}")
-    print("Mean reconstruction error at n:", f"{np.mean(np.abs(price_n - Y[:, n])):.2e}")
-    print("Step time:", f"{time.perf_counter() - step_start_time:.2f}s")
+    ground_prices = model.price(X_n, n*dt) # (batch_size, )
+    print("Mean reconstruction error at n:", f"{np.mean(np.abs(Y_n - ground_prices)):.2e}, Max reconstruction error at n:", f"{np.max(np.abs(Y_n - ground_prices)):.2e}")
+    print("Step time:", f"{time.perf_counter() - step_start_time:.2f}s\n")
 
-    relative_errors.append(np.abs(price_n - np.mean(Y[:, n])) / price_n)
-    errors.append(np.abs(price_n - np.mean(Y[:, n])))
+    relative_errors = np.abs(Y_n - ground_prices) / ground_prices
+    mean_relative_errors.append(np.mean(relative_errors))
+    max_relative_errors.append(np.max(relative_errors))
 
-    if num_assets < 10:
-        vt = (Y[:, n + 1] - Y[:, n]) / dt
-        vx = Z_nk
-        vxx = hessian(V_nk, phi_X_n, dphi_X_n, ddphi_X[n], batch=True).transpose((2, 0, 1))
-        loss = pde_loss(n*dt, X_n, Y_nk, vt, vx, vxx)
-        print("Mean PDE loss", loss.mean())
-        print("Mean abs PDE loss", np.abs(loss).mean())
-
-print("End")
 
 end_time = time.perf_counter()
 
-print(f"Time: {end_time - start_time:.2f}s")
-print(f"Mean step time: {np.mean(step_times):.2f}s")
+print(f"Total time: {end_time - start_time:.2f}s")
+print(f"Mean step time: {np.mean(step_times):.2f}s\n")
 
-print()
-price = np.mean(model.price(X0_batch, 0))
-print("Price at 0", price)
-print("Predicted Price:", np.mean(Y[:, 0]))
+ground_truth = model.price(xo[None, :], 0, n_sims=50_000).item()
+print(f"Predicted price at 0: {Y[0, 0]:.4f} | Ground price at 0: {ground_truth:.4f}")
 
-print(Y[:, 0])
-
-# Print relative error in percentage
-print("Relative error:", f"{np.abs(price - np.mean(Y[:, 0])) / price * 100:.2f}%")
+error = np.abs(Y[0, 0] - ground_truth)
+print(f"Error at 0: {error:.2e} | Relative error at 0: {error / ground_truth:.2e}")
 
 plt.figure(figsize=(10, 5))
 n_simulations = 3
@@ -165,13 +138,13 @@ colormap = plt.cm.viridis
 simulation_indices = np.random.choice(batch_size, n_simulations, replace=False)
 for j in range(len(simulation_indices)):
     predicted_prices = [Y[simulation_indices[j], i] for i in range(N + 1)]
-    ground_prices = [model.price(np.array([X[simulation_indices[j], i]]), i * dt) for i in range(N + 1)]
+    ground_prices = [model.price(np.array([X[simulation_indices[j], i]]), i * dt, n_sims=50_000) for i in range(N + 1)]
 
     plt.plot(predicted_prices, label=f"Price #{j}", linestyle="--", color=colormap(j / n_simulations), lw=0.8)
     plt.plot(ground_prices, label=f"Ground Price #{j}", linestyle="-", color=colormap(j / n_simulations), lw=0.8)
 
 plt.scatter([0], [np.mean(Y[:, 0])], color="red", label="Predicted Price at 0", marker="x")
-plt.scatter([0], [np.mean(model.price(X0_batch, 0))], color="red", label="Ground Price at 0", marker="o")
+plt.scatter([0], [ground_truth], color="red", label="Ground Price at 0", marker="o")
 plt.xlabel("Time")
 plt.ylabel("Price")
 plt.title(f"Evolutions of prices | {configurations}")
@@ -179,15 +152,54 @@ plt.legend()
 plt.show()
 
 plt.figure(figsize=(10, 5))
-plt.plot(np.arange(N + 1), relative_errors[::-1])
+plt.plot(np.linspace(0, T, N + 1), mean_relative_errors[::-1], label="Mean relative error")
+plt.plot(np.linspace(0, T, N + 1), max_relative_errors[::-1], label="Max relative error")
 plt.xlabel("Time")
 plt.ylabel("Relative error")
-plt.title(f"Relative error | {configurations}")
+plt.title(f"Relative errors | {configurations}")
+plt.legend()
 plt.show()
 
-plt.figure(figsize=(10, 5))
+# for n in range(N + 1):
+#     cores = [np.array(core) for core in V[n].cores.values()]
 
-plt.xlabel("Time")
-plt.ylabel("Error")
-plt.title(f"Error | {configurations}")
-plt.show()
+
+#     print([core.shape for core in cores])
+
+#     cores = [core.reshape(degree, -1) for core in cores]
+
+#     plt.figure(figsize=(10, 5))
+#     plt.subplot(1, 2, 1)
+#     plt.imshow(cores[0])
+#     plt.title("Core 1")
+#     plt.subplot(1, 2, 2)
+#     plt.imshow(cores[1])
+#     plt.title("Core 2")
+#     plt.suptitle(f"Core shapes at n={n} | {configurations}")
+# plt.show()
+
+
+
+# from bsde_solver.utils import compute_solution
+
+
+# print("=====================================\n")
+
+
+# discretization = 5
+# x = np.linspace(-10, 10, discretization)
+# X = np.tile(x, (num_assets, 1)).T
+# X[:, 1] = 2 * X[:, 1]
+# V0 = V[0]
+
+# Ys = compute_solution(X, V0, basis)
+
+# # print(Ys.shape)
+# # print(Ys)
+
+# plt.figure(figsize=(10, 5))
+# plt.plot(x, Ys)
+# plt.xlabel("x")
+# plt.ylabel("Y")
+# plt.title(f"Solution at 0 | {configurations}")
+# plt.show()

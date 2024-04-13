@@ -24,6 +24,7 @@ class PDELoss:
             np.ndarray: Loss.
         """
         sigma = self.model.sigma(x, t)
+        print(sigma.shape)
         sigma2 = sigma.T @ sigma
         z = (vx @ sigma) if len(sigma.shape) != 1 else sigma * vx
         loss = vt + np.sum(self.model.b(x, t) * z, axis=1)
