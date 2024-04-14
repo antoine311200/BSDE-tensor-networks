@@ -21,9 +21,7 @@ def second_retraction_operator(tt, phis, j):
         else:
             result = TensorNetwork(
                 cores=[core, phi], names=[f"core_{i}", f"phi_{i}"]
-            ).contract(
-                indices=("batch", f"r_{i}", f"r_{i+1}")
-            )  # f"m_{i+1}",
+            ).contract(indices=("batch", f"r_{i}", f"r_{i+1}"))
         results.append(result)
 
     V = TensorNetwork(cores=results, names=[f"V_{i}" for i in range(len(phis.cores))])
@@ -56,7 +54,7 @@ def MALS(
 
     def micro_optimization(tt, j):
         V = second_retraction_operator(tt, phis, j)
-
+        # V = V.unfold(f"r_{j}", f"m_{j+1}", f"m_{j+2}", f"r_{j+2}", "batch")
         V_T = V.copy().rename("r_*", "s_*").rename("m_*", "n_*")
 
         # The operator A can be non invertible, so we need to use some regularization
@@ -67,21 +65,19 @@ def MALS(
         )
         V = V.unfold("batch", (f"r_{j}", f"m_{j+1}", f"m_{j+2}", f"r_{j+2}"))
 
-        # print("ok")
-        # print(V)
-        # print(result)
-
         Y = TensorNetwork(cores=[V, result], names=["V", "result"]).contract()
-
-        # W = np.linalg.lstsq(A.view(np.ndarray), Y.view(np.ndarray), rcond=None)[0]
         W = solver(A, Y, method=optimizer)
-        W = W.reshape(tt.ranks[j] * tt.shape[j], tt.shape[j + 1] * tt.ranks[j + 2])
-
+        dummy_core = TensorCore.dummy(
+            (tt.ranks[j] * tt.shape[j], tt.shape[j + 1] * tt.ranks[j + 2]),
+            indices=(f"r_{j}+m_{j+1}", f"m_{j+2}+r_{j+2}"),
+        )
+        W = TensorCore.like(W, dummy_core)
         return W
 
     for _ in range(n_iter):
+        # print("Left sweep")
         # Left half sweep
-        for j in range(tt.order - 1):
+        for j in range(tt.order - 2):
             # Micro optimization
             W = micro_optimization(tt, j)
 
@@ -112,8 +108,15 @@ def MALS(
             tt.cores[f"core_{j}"] = Y
             tt.cores[f"core_{j+1}"] = Z
 
+            # Q, R = np.linalg.qr(W)
+            # Q = Q[:, : tt.ranks[j + 1]]
+            # R = R[: tt.ranks[j + 1], :]
+            # tt.cores[f"core_{j}"] = TensorCore.like(Q, tt.cores[f"core_{j}"])
+            # tt.cores[f"core_{j+1}"] = TensorCore.like(R, tt.cores[f"core_{j+1}"])
+
+        # print("Right sweep")
         # Right half sweep
-        for j in range(tt.order - 1, 0, -1):
+        for j in range(tt.order - 1, 1, -1):
             # Micro optimization
             W = micro_optimization(tt, j - 1)
 
@@ -143,5 +146,11 @@ def MALS(
 
             tt.cores[f"core_{j-1}"] = Y
             tt.cores[f"core_{j}"] = Z
+
+            # Q, R = np.linalg.qr(W.T)
+            # Q = Q[:, : tt.ranks[j]]
+            # R = R[: tt.ranks[j], :]
+            # tt.cores[f"core_{j-1}"] = TensorCore.like(R.T, tt.cores[f"core_{j-1}"])
+            # tt.cores[f"core_{j}"] = TensorCore.like(Q.T, tt.cores[f"core_{j}"])
 
     return tt

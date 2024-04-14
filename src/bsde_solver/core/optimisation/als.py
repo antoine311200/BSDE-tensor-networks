@@ -25,8 +25,6 @@ def retraction_operator(tt, phis, j):
         results.append(result)
 
     V = TensorNetwork(cores=results, names=[f"V_{i}" for i in range(len(phis.cores))])
-
-    # print(V)
     V = V.contract(batch=True, indices=(f"r_{j}", f"m_{j+1}", f"r_{j+1}"))
     return V
 

@@ -31,9 +31,9 @@ def run(phis, b, algo):
 
 if __name__ == "__main__":
 
-    seed = 210
+    seed = 216540
     degree = 3
-    num_assets = 6
+    num_assets = 8
 
     shape = [degree for _ in range(num_assets)]
     dim = 2
@@ -86,13 +86,13 @@ if __name__ == "__main__":
 
     ########################
 
-    # print(f"Run ALS with LSTSQ optimization")
-    # run(phis, b, partial(
-    #     ALS,
-    #     n_iter=10,
-    #     ranks=ranks,
-    #     optimizer="lstsq",
-    # ))
+    print(f"Run ALS with LSTSQ optimization")
+    run(phis, b, partial(
+        ALS,
+        n_iter=10,
+        ranks=ranks,
+        optimizer="lstsq",
+    ))
 
     # print(f"Run ALS with LU optimization")
     # run(phis, b, partial(
@@ -114,8 +114,8 @@ if __name__ == "__main__":
         MALS,
         n_iter=10,
         ranks=ranks,
-        threshold=1e-2,
-        max_rank=5,
+        threshold=1e-8,
+        max_rank=8,
         optimizer="lstsq",
     ))
 
