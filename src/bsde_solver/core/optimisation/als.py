@@ -1,3 +1,4 @@
+from bsde_solver.core.optimisation.solve import solver
 from bsde_solver.core.tensor.tensor_train import TensorTrain, left_unfold, right_unfold
 from bsde_solver.core.tensor.tensor_core import TensorCore
 from bsde_solver.core.tensor.tensor_network import TensorNetwork
@@ -18,10 +19,14 @@ def retraction_operator(tt, phis, j):
         else:
             result = TensorNetwork(
                 cores=[core, phi], names=[f"core_{i}", f"phi_{i}"]
-            ).contract(indices=("batch", f"r_{i}", f"m_{i+1}", f"r_{i+1}"))
+            )
+            # print("R", result)
+            result = result.contract(indices=("batch", f"r_{i}", f"r_{i+1}"))#, f"m_{i+1}"
         results.append(result)
 
     V = TensorNetwork(cores=results, names=[f"V_{i}" for i in range(len(phis.cores))])
+
+    # print(V)
     V = V.contract(batch=True, indices=(f"r_{j}", f"m_{j+1}", f"r_{j+1}"))
     return V
 
@@ -31,12 +36,13 @@ def ALS(
     result: list[float],
     n_iter=10,
     ranks=None,
-    eta=0.0001,
+    optimizer="lstsq",
     init_tt=None,
 ):
     shape = tuple([phi.shape[1] for phi in phis])
 
     tt = init_tt if init_tt else TensorTrain(shape, ranks)
+    tt.randomize()
     tt.orthonormalize(mode="right", start=1)
 
     phis = TensorNetwork(cores=phis)
@@ -44,10 +50,6 @@ def ALS(
 
     def micro_optimization(tt, j):
         V = retraction_operator(tt, phis, j)
-
-        # P = retraction(tt, j)
-        # V = TensorNetwork(cores=[P, phis], names=["P", "phi"]).contract(batch=True, indices=(f"r_{j}", f"m_{j+1}", f"r_{j+1}"))
-
         V_T = V.copy().rename("r_*", "s_*").rename("m_*", "n_*")
 
         # The operator A can be non invertible, so we need to use some regularization
@@ -59,7 +61,7 @@ def ALS(
 
         Y = TensorNetwork(cores=[V, result], names=["V", "result"]).contract()
 
-        X = np.linalg.lstsq(A.view(np.ndarray), Y.view(np.ndarray), rcond=None)[0]
+        X = solver(A, Y, optimizer)
         X = TensorCore.like(X, tt.cores[f"core_{j}"])
         return X
 
