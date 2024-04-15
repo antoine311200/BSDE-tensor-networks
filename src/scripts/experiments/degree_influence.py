@@ -57,8 +57,8 @@ if __name__ == "__main__":
 
     n_assets = [4]
     batch_sizes = [1000]
-    # degrees = [1, 2, 3, 4, 5]
-    degrees = [4]
+    degrees = [1, 2, 3, 4, 5]
+    # degrees = [4]
     rank = 2
 
     # funcs = [lambda x: np.sum(x, axis=1), lambda x: np.sum(x**2, axis=1), lambda x: np.sum(x**3, axis=1), lambda x: np.sum(x**4, axis=1)]
@@ -68,8 +68,8 @@ if __name__ == "__main__":
     # func_tex = r"x_1 \cdot x_2^2"
     # func = lambda x: x[:, 0] * x[:, 1] ** 2
     #np.sum(x**4, axis=1)
-    func_tex = r"\sum_{i=1}^n x_i^4"
-    func = lambda x: np.sum(x**4, axis=1)
+    func_tex = "$\sum_{i=1}^n x_i^2 + x_i^4$"
+    func = lambda x: np.sum(x**4, axis=1) + np.sum(x**2, axis=1)
     # func = lambda x: np.sum(x**2, axis=1)**2
     # func = lambda x: np.linalg.norm(x, axis=1)**2
 
@@ -109,7 +109,7 @@ if __name__ == "__main__":
     plt.imshow(full_rdm, cmap='hot', interpolation='nearest')
     plt.xticks(range(full_rdm.shape[1]), [f"Degree {i}" for i in range(full_rdm.shape[1])])
     plt.yticks(range(full_rdm.shape[0]), [f"Asset {i+1}" for i in range(full_rdm.shape[0])])
-    plt.title(r"Reduced density matrices for {0}".format(func_tex))
+    plt.title(r"Reduced density matrices for {}".format(func_tex))
     plt.colorbar()
     plt.show()
 
