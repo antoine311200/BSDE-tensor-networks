@@ -1,6 +1,7 @@
 from opt_einsum import contract, contract_path
 from bsde_solver import xp
 from time import perf_counter
+
 import sys
 
 batch_size = 1000
