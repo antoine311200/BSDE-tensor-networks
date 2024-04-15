@@ -10,6 +10,7 @@ from bsde_solver.core.tensor.tensor_core import TensorCore
 from bsde_solver.core.calculus.derivative import batch_derivative, multi_derivative
 from bsde_solver.core.calculus.hessian import hessian
 from bsde_solver.core.optimisation.als import ALS
+from bsde_solver.core.optimisation.mals import MALS
 from bsde_solver.core.calculus.basis import LegendreBasis, PolynomialBasis
 from bsde_solver.loss import PDELoss
 from bsde_solver.utils import flatten, fast_contract
@@ -21,9 +22,10 @@ T = 1
 N = 100
 num_assets = 10
 dt = T / N
+solver = "als"
 
-n_iter = 2
-rank = 2
+n_iter = 20
+rank = 3
 degree = 3
 shape = tuple([degree for _ in range(num_assets)])
 ranks = (1,) + (rank,) * (num_assets - 1) + (1,)
@@ -39,6 +41,15 @@ sigma = 0.4
 r = 0.05
 model = BlackScholes(X0, dt, T, r, sigma)
 configurations = f"{num_assets} assets | {N} steps | {batch_size} batch size | {n_iter} iterations | {degree} degree | {rank} rank"
+
+# solver
+if solver == "als":
+    solver = ALS
+elif solver == "mals":
+    solver = MALS
+else:
+    raise ValueError("Invalid solver")
+
 
 # Compute trajectories
 X, noise = generate_trajectories(X0, N, model) # (batch_size, N + 1, dim), (batch_size, N + 1, dim) (xi[0] is not used)
