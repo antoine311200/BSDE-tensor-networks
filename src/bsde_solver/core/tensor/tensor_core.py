@@ -119,7 +119,7 @@ class TensorCore(np.ndarray):
         self[:] = (np.random.rand(*self.shape_info) - 0.5) * 2
 
     def rename(self, old_name: str, new_name: str, inplace: bool = True):
-        if "*" in old_name: old_name = old_name.replace("*", "(\d+)")
+        if "*" in old_name: old_name = old_name.replace("*", r"(\d+)")
         new_indices = []
         for idx in self.indices:
             new_indices.append(re.sub(
