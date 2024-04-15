@@ -15,7 +15,7 @@ def poly(x, degree=10):
 def initialize(n_assets, batch_size, degree, func):
     X, phi_X = [], []
     for i in range(batch_size):
-        x = (np.random.rand(n_assets)-1/2)
+        x = (np.random.rand(n_assets)-1/2) * 10
         phi = [TensorCore(poly(x[i], degree=degree), name=f"phi_{i+1}", indices=(f"m_{i+1}",)) for i in range(n_assets)]
         X.append(x)
         phi_X.append(phi)
@@ -57,13 +57,19 @@ if __name__ == "__main__":
 
     n_assets = [4]
     batch_sizes = [1000]
-    degrees = [1, 2, 3, 4, 5]
+    # degrees = [1, 2, 3, 4, 5]
+    degrees = [4]
     rank = 2
 
     # funcs = [lambda x: np.sum(x, axis=1), lambda x: np.sum(x**2, axis=1), lambda x: np.sum(x**3, axis=1), lambda x: np.sum(x**4, axis=1)]
     # func(x1, ..., xn) = x1**4 + x2**4 + ... + xn**4
     # func(x1, ..., xn) = (x1+x2+...+xn)**4
-    func = lambda x: np.sum(x**3, axis=1)
+    # func(x1, ..., xn) = x1*x2
+    # func_tex = r"x_1 \cdot x_2^2"
+    # func = lambda x: x[:, 0] * x[:, 1] ** 2
+    #np.sum(x**4, axis=1)
+    func_tex = r"\sum_{i=1}^n x_i^4"
+    func = lambda x: np.sum(x**4, axis=1)
     # func = lambda x: np.sum(x**2, axis=1)**2
     # func = lambda x: np.linalg.norm(x, axis=1)**2
 
@@ -82,6 +88,30 @@ if __name__ == "__main__":
         X, Y = initialize(n_asset, batch_size, degree, func)
         A, result, l2, l1 = run(X, Y, algo)
         result_dict[(n_asset, batch_size, degree)] = (A, result, l2, l1)
+
+    reduced_densities = []
+
+    print(A)
+
+    for core in A.cores.values():
+        c = core.copy()
+        cT = core.copy().rename("m_*", 'n_*')
+        rho = TensorNetwork(cores=[c, cT], names=["C", "C_T"]).contract()
+        print(np.round(np.diag(rho.view(np.ndarray)), 4))
+        reduced_densities.append(np.diag(rho.view(np.ndarray)))
+
+    full_rdm = np.array(reduced_densities)
+
+    # Plot a grid as an image of the reduced density matrices
+    import matplotlib.pyplot as plt
+
+    plt.figure(figsize=(10, 10))
+    plt.imshow(full_rdm, cmap='hot', interpolation='nearest')
+    plt.xticks(range(full_rdm.shape[1]), [f"Degree {i}" for i in range(full_rdm.shape[1])])
+    plt.yticks(range(full_rdm.shape[0]), [f"Asset {i+1}" for i in range(full_rdm.shape[0])])
+    plt.title(r"Reduced density matrices for {0}".format(func_tex))
+    plt.colorbar()
+    plt.show()
 
     # Plot the L2 and L1 errors as bar plots
     import matplotlib.pyplot as plt
