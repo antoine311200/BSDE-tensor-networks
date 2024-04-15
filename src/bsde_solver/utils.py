@@ -25,30 +25,3 @@ def fast_contract(tt, x):
         results.append(result)
     V = TensorNetwork(cores=results, names=[f"V_{i}" for i in range(len(x.cores))]).contract(batch=True, indices=('batch',))
     return V
-
-
-# batch_qr = xp.vectorize(xp.linalg.qr, signature='(m,n)->(m,p),(p,n)')
-
-from bsde_solver.core.tensor.tensor_core import TensorCore
-
-def compute_solution(X, V0, basis): # (batch_size, num_assets), (TT, ), (Basis, )
-    batch_size, num_assets = X.shape
-    phi_X = [TensorCore(basis.eval(X[:, i]), name=f"phi_{i+1}", indices=("batch", f"m_{i+1}"),) for i in range(num_assets)]
-
-    print(f"phi_X: {phi_X}")
-    print(f"V0: {V0}")
-
-    print([xp.array(core) for core in phi_X])
-
-    # phi = xp.stack([basis.eval(X[:, i]) for i in range(num_assets)], axis=0)
-    # # print(phi.shape)
-
-    # for k in range(batch_size):
-    #     print("k:", k)
-    #     print(X[k, :])
-    #     print(phi[:, k])
-    #     print()
-
-
-    Ys = xp.array(fast_contract(V0, phi_X))
-    return Ys

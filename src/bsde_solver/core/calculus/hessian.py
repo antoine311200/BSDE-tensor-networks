@@ -3,7 +3,6 @@ from bsde_solver import xp
 from bsde_solver.core.tensor.tensor_train import TensorTrain
 from bsde_solver.core.tensor.tensor_network import TensorNetwork
 
-
 def hessian(tt: TensorTrain, x, dx, ddx, batch=False):
     if not batch: hessian = xp.zeros((tt.order, tt.order))
     else: hessian = xp.zeros((tt.order, tt.order, dx[0].shape[dx[0].indices.index("batch")], ))

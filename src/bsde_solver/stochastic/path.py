@@ -3,7 +3,7 @@ from bsde_solver import xp
 from bsde_solver.bsde import BackwardSDE
 
 
-def generate_trajectories(X0, N, model):
+def generate_trajectories(X0, N, model: BackwardSDE):
     """Generate the backward sequence of X_t for t in [0, T] with a given time step.
 
     X_n+1 = X_n + b(X_n, t_n) * delta_t + sigma(X_n, t_n) * xi_n+1 * (W_{t_{n+1}} - W_{t_n})

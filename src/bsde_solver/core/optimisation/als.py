@@ -4,12 +4,6 @@ from bsde_solver.core.tensor.tensor_core import TensorCore
 from bsde_solver.core.tensor.tensor_network import TensorNetwork
 
 from bsde_solver import xp
-import time
-
-
-def retraction(tt, j):
-    return tt.extract([f"core_{i}" for i in range(tt.order) if i != j])
-
 
 def retraction_operator(tt, phis, j):
     results = []
@@ -20,7 +14,7 @@ def retraction_operator(tt, phis, j):
             result = TensorNetwork(
                 cores=[core, phi], names=[f"core_{i}", f"phi_{i}"]
             )
-            result = result.contract(indices=("batch", f"r_{i}", f"r_{i+1}"))#, f"m_{i+1}"
+            result = result.contract(indices=("batch", f"r_{i}", f"r_{i+1}"))
         results.append(result)
 
 
@@ -111,6 +105,8 @@ def ALS_regularized(
     min_sv=0.2,
     init_tt=None,
 ):
+    raise NotImplementedError("ALS_regularized is not implemented yet")
+
     shape = tuple([phi.shape[1] for phi in phis])
 
     tt = init_tt if init_tt else TensorTrain(shape, ranks)  # .randomize()

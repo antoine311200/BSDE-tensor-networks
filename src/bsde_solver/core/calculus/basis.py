@@ -62,12 +62,3 @@ class WaveletBasis(Basis):
             1/xp.power(2, j/2) * WaveletBasis.base_func((x - xp.pow(2, j)*n) / xp.pow(2, j))
             for j in range(-self.j, self.j) for n in range(-self.n, self.n)
         ])
-
-
-if __name__ == "__main__":
-
-    basis = LegendreBasis(4)
-
-    x = xp.arange(5)
-    print(basis.eval(x))
-    print(basis.grad(x))

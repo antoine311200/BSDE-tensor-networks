@@ -5,8 +5,6 @@ from src.bsde_solver.core.tensor.tensor_network import TensorNetwork
 
 def solver(A: TensorNetwork, b: TensorNetwork, method='lu'):
     if method == 'lu':
-        # print(A)
-        # print(A.view(xp.ndarray))
         lu_factor = linalg.lu_factor(A.view(xp.ndarray))
         x = linalg.lu_solve(lu_factor, b.view(xp.ndarray))
     elif method == 'lstsq':

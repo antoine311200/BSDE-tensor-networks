@@ -1,15 +1,10 @@
 from bsde_solver.core.optimisation.solve import solver
-from bsde_solver.core.tensor.tensor_train import (
-    TensorTrain,
-    left_unfold,
-    right_unfold,
-)
+from bsde_solver.core.tensor.tensor_train import TensorTrain
+
 from bsde_solver.core.tensor.tensor_core import TensorCore
 from bsde_solver.core.tensor.tensor_network import TensorNetwork
 
 from bsde_solver import xp
-from scipy import linalg
-
 
 def second_retraction_operator(tt, phis, j):
     results = []

@@ -8,9 +8,8 @@ import matplotlib.pyplot as plt
 from bsde_solver.bsde import BackwardSDE, HJB, DoubleWellHJB, BlackScholes, AllenCahn
 from bsde_solver.stochastic.path import generate_trajectories
 from bsde_solver.core.tensor.tensor_network import TensorNetwork
-from bsde_solver.core.tensor.tensor_train import BatchTensorTrain
 from bsde_solver.core.tensor.tensor_core import TensorCore
-from bsde_solver.core.calculus.derivative import batch_derivative, multi_derivative
+from bsde_solver.core.calculus.derivative import  multi_derivative
 from bsde_solver.core.calculus.hessian import hessian
 from bsde_solver.core.optimisation.als import ALS, ALS_regularized
 from bsde_solver.core.optimisation.mals import MALS
@@ -19,10 +18,10 @@ from bsde_solver.loss import PDELoss
 from bsde_solver.utils import flatten, fast_contract
 
 import time
-profiler = cProfile.Profile()
-profiler.enable()
+# profiler = cProfile.Profile()
+# profiler.enable()
 
-mode = "MALS"
+mode = "ALS"
 if mode == "ALS":
     optimizer = ALS
 elif mode == "SALSA":
@@ -36,9 +35,9 @@ N = 10
 num_assets = 6
 dt = T / N
 
-n_iter = 20
-rank = 3
-degree = 3
+n_iter = 50
+rank = 5
+degree = 5
 shape = tuple([degree for _ in range(num_assets)])
 ranks = (1,) + (rank,) * (num_assets - 1) + (1,)
 
@@ -47,7 +46,7 @@ basis = PolynomialBasis(degree)
 
 # X0 = xp.zeros(num_assets) # Hamilton-Jacobi-Bellman (HJB) initial condition
 # X0 = xp.zeros(num_assets) # Allen-Cahn initial condition
-X0 = xp.array(flatten([(1, 0.5) for _ in range(num_assets//2)])) # Black-Scholes initial condition
+X0 = xp.array(flatten([(2., 3.5) for _ in range(num_assets//2)])) # Black-Scholes initial condition
 # X0 = -xp.ones(num_assets) # Double-well HJB initial condition
 
 X0_batch = xp.broadcast_to(X0, (batch_size, num_assets))
@@ -92,9 +91,6 @@ check_V = fast_contract(V_N, phi_X[-1]).view(xp.ndarray).squeeze()
 
 print("Mean reconstruction error at N:", f"{xp.abs(xp.mean(check_V - Y[:, -1])):.2e}")
 print("Prediction at N:", f"{xp.mean(Y[:, -1]):.4f} | Value at N:", f"{xp.mean(check_V):.4f}")
-
-import sys
-sys.exit()
 
 print("Compute true prices")
 prices = []
@@ -210,7 +206,7 @@ for j in range(len(simulation_indices)):
 # plt.title(f"Error | {configurations}")
 # plt.show()
 
-profiler.disable()
+# profiler.disable()
 
 # Step 6: Print the results
 # stats = Stats(profiler)

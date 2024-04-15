@@ -19,29 +19,29 @@ from bsde_solver.utils import flatten, fast_contract
 
 import time
 
-batch_size = 5000
+batch_size = 2000
 T = 1
-N = 2
+N = 100
 num_assets = 10
 dt = T / N
-solver = "als"
 
 n_iter = 20
 rank = 3
-degree = 5
+degree = 4
 shape = tuple([degree for _ in range(num_assets)])
 ranks = (1,) + (rank,) * (num_assets - 1) + (1,)
+solver = "als"
 
 basis = PolynomialBasis(degree)
 
-# xo = xp.zeros(num_assets)
-xo = xp.array(flatten([(1, 0.5) for _ in range(num_assets//2)])) # Black-Scholes initial condition
+xo = xp.zeros(num_assets)
+# xo = xp.array(flatten([(.5, 2.) for _ in range(num_assets//2)])) # Black-Scholes initial condition
 X0 = xp.tile(xo, (batch_size, 1))
 
-# model = HJB(X0=X0, delta_t=dt, T=T, sigma=xp.sqrt(2))
+model = HJB(X0=X0, delta_t=dt, T=T, sigma=xp.sqrt(2))
 sigma = 0.4
 r = 0.05
-model = BlackScholes(X0, dt, T, r, sigma)
+# model = BlackScholes(X0, dt, T, r, sigma)
 configurations = f"{num_assets} assets | {N} steps | {batch_size} batch size | {n_iter} iterations | {degree} degree | {rank} rank"
 
 # solver

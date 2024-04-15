@@ -1,10 +1,8 @@
 from __future__ import annotations
-from typing import Any
 
-import re
 from bsde_solver import xp
 from copy import deepcopy
-from opt_einsum import contract, contract_path
+from opt_einsum import contract
 
 from bsde_solver.core.tensor.tensor_core import TensorCore
 
