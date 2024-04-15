@@ -57,14 +57,15 @@ if __name__ == "__main__":
 
     n_assets = [4]
     batch_sizes = [1000]
-    degrees = [2, 3, 4, 5]
-    rank = 3
+    degrees = [1, 2, 3, 4, 5]
+    rank = 2
 
     # funcs = [lambda x: np.sum(x, axis=1), lambda x: np.sum(x**2, axis=1), lambda x: np.sum(x**3, axis=1), lambda x: np.sum(x**4, axis=1)]
     # func(x1, ..., xn) = x1**4 + x2**4 + ... + xn**4
     # func(x1, ..., xn) = (x1+x2+...+xn)**4
-    # func = lambda x: np.sum(x**4, axis=1)
-    func = lambda x: np.sum(x**2, axis=1)**2
+    func = lambda x: np.sum(x**3, axis=1)
+    # func = lambda x: np.sum(x**2, axis=1)**2
+    # func = lambda x: np.linalg.norm(x, axis=1)**2
 
     for n_asset, batch_size, degree in product(n_assets, batch_sizes, degrees):
         print('~'*50)
@@ -82,18 +83,22 @@ if __name__ == "__main__":
         A, result, l2, l1 = run(X, Y, algo)
         result_dict[(n_asset, batch_size, degree)] = (A, result, l2, l1)
 
-    # Plot the L2 and L1 errors
+    # Plot the L2 and L1 errors as bar plots
     import matplotlib.pyplot as plt
 
-    fig, ax = plt.subplots(2, 1, figsize=(10, 10))
+    fig, ax = plt.subplots(2, 1, figsize=(10, 8))
 
-    for k, v in result_dict.items():
-        degree = k[2]
-        ax[0].plot(degree, v[2], 'o', label=f"Degree {degree}")
-        ax[1].plot(degree, v[3], 'o', label=f"Degree {degree}")
+    for i, metric in enumerate(['L2', 'L1']):
+        data = []
+        for key, value in result_dict.items():
+            data.append(value[i+2])
 
-    ax[0].set_title("L2 error")
-    ax[1].set_title("L1 error")
-    ax[0].legend()
-    ax[1].legend()
+        ax[i].bar(range(len(data)), data)
+        for j, value in enumerate(data):
+            ax[i].text(j, value, round(value, 4), ha='center', va='bottom')
+        ax[i].set_xticks(range(len(data)))
+        ax[i].set_xticklabels([f"Degree {key[2]}" for key in result_dict.keys()], rotation=45, fontsize=8)
+        ax[i].set_title(f"{metric} errors")
+        ax[i].set_ylabel(f"{metric} error")
+
     plt.show()
