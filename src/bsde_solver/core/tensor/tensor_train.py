@@ -199,7 +199,7 @@ class TensorTrain(TensorNetwork):
             raise ValueError("orthogonality must be either 'left' or 'right'")
 
     @staticmethod
-    def from_tensor(tensor: xp.ndarray, ranks: list[int]):
+    def from_tensor(tensor, ranks: list[int]):
         """Create a tensor train from a given tensor.
 
         Args:

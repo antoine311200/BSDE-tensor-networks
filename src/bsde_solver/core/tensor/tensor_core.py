@@ -3,8 +3,6 @@ from __future__ import annotations
 import re
 from bsde_solver import xp
 
-from copy import deepcopy
-
 class TensorCore(xp.ndarray):
     """Create a tensor core object as a subclass of xp.ndarray.
 
