@@ -1,19 +1,19 @@
 from __future__ import annotations
 
 import re
-import numpy as np
+from bsde_solver import xp
 
 from copy import deepcopy
 
-class TensorCore(np.ndarray):
-    """Create a tensor core object as a subclass of np.ndarray.
+class TensorCore(xp.ndarray):
+    """Create a tensor core object as a subclass of xp.ndarray.
 
     A tensor core is represented as a numpy array with an additional attribute "shape" which is a tuple of the shape of the tensor core,
     as well as an additional attribute 'legs' which is a tuple of strings representing the indices of the tensor core.
     """
 
     def __new__(cls, input_array, indices=None, name=None):
-        obj = np.asarray(input_array).view(cls)
+        obj = xp.asarray(input_array).view(cls)
         obj.name = name
         obj.shape_info = tuple(obj.shape)
         obj.indices = indices if indices is not None else cls._generate_indices(obj.shape_info)
@@ -47,7 +47,7 @@ class TensorCore(np.ndarray):
 
     @staticmethod
     def dummy(shape_info, indices=None, name=None):
-        return TensorCore(np.zeros(shape_info), indices=indices, name=name)
+        return TensorCore(xp.zeros(shape_info), indices=indices, name=name)
 
     def like(input_array, like_core: 'TensorCore' = None, name=None):
         return TensorCore(input_array.reshape(like_core.shape),
@@ -70,10 +70,11 @@ class TensorCore(np.ndarray):
                     ]
                     visited += item
                     indices.append("+".join(item))
-                    shapes.append(np.prod([
+                    shapes.append(xp.prod(xp.array([
                         self.shape_info[self.indices.index(idx)]
                         for idx in item
-                    ]))
+                    ])).item()
+                    )
                 elif item != -1:
                     item = self.indices[item] if isinstance(item, int) else item
                     visited.append(item)
@@ -88,7 +89,7 @@ class TensorCore(np.ndarray):
             if idx:
                 unseen_indices = [item for item in self.indices if item not in visited]
                 indices[idx] = '+'.join(unseen_indices)
-                shapes[idx] = np.prod([
+                shapes[idx] = xp.prod([
                     self.shape_info[idx]
                     for idx in [
                         self.indices.index(idx)
@@ -116,7 +117,7 @@ class TensorCore(np.ndarray):
         return new_array
 
     def randomize(self):
-        self[:] = (np.random.rand(*self.shape_info) - 0.5) * 2
+        self[:] = (xp.random.rand(*self.shape_info) - 0.5) * 2
 
     def rename(self, old_name: str, new_name: str, inplace: bool = True):
         if "*" in old_name: old_name = old_name.replace("*", r"(\d+)")
@@ -131,7 +132,7 @@ class TensorCore(np.ndarray):
         if inplace:
             self.indices = tuple(new_indices)
         else:
-            return TensorCore(deepcopy(self), indices=tuple(new_indices), name=self.name)
+            return TensorCore(super().copy(), indices=new_indices, name=self.name)
 
         return self
 
@@ -155,8 +156,11 @@ class TensorCore(np.ndarray):
         batch_size = len(tensors)
         new_shape = (batch_size,) + tensors[0].shape_info
         new_indices = ('batch',) + tensors[0].indices
-        new_array = np.stack([tensor for tensor in tensors], axis=0)
+        new_array = xp.stack([tensor for tensor in tensors], axis=0)
         return TensorCore(new_array, indices=new_indices)
 
-    def size(self, axe_name):
+    def size_at(self, axe_name):
         return self.shape_info[self.indices.index(axe_name)]
+    
+    def copy(self, *args, **kwargs):
+        return TensorCore(super().copy(*args, **kwargs), indices=self.indices, name=self.name)

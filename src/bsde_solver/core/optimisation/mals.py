@@ -1,15 +1,13 @@
 from bsde_solver.core.optimisation.solve import solver
 from bsde_solver.core.tensor.tensor_train import (
-    BatchTensorTrain,
     TensorTrain,
     left_unfold,
     right_unfold,
 )
 from bsde_solver.core.tensor.tensor_core import TensorCore
 from bsde_solver.core.tensor.tensor_network import TensorNetwork
-from bsde_solver.utils import batch_qr
 
-import numpy as np
+from bsde_solver import xp
 from scipy import linalg
 
 
@@ -45,12 +43,12 @@ def MALS(
     tt.orthonormalize(mode="right", start=1)
 
     phis = TensorNetwork(cores=phis)
-    result = TensorCore(np.array(result), name="result", indices=("batch",))
+    result = TensorCore(xp.array(result), name="result", indices=("batch",))
 
     max_ranks = [
-        np.minimum(tt.ranks[i] * tt.shape[i], max_rank) for i in range(tt.order - 1)
+        xp.minimum(tt.ranks[i] * tt.shape[i], max_rank) for i in range(tt.order - 1)
     ]
-    max_ranks[-1] = np.minimum(tt.ranks[-1] * tt.shape[-1], max_rank)
+    max_ranks[-1] = xp.minimum(tt.ranks[-1] * tt.shape[-1], max_rank)
 
     def micro_optimization(tt, j):
         V = second_retraction_operator(tt, phis, j)
@@ -82,16 +80,16 @@ def MALS(
             W = micro_optimization(tt, j)
 
             # Compute SVD
-            U, S, V = np.linalg.svd(W)
+            U, S, V = xp.linalg.svd(W)
 
             # Compute the new rank as the number of singular values that are greater than a threshold
-            new_rank = np.minimum(np.sum(S / S[0] > threshold), max_ranks[j])
+            new_rank = xp.minimum(xp.sum(S / S[0] > threshold), max_ranks[j])
             if new_rank != tt.ranks[j + 1]:
                 print(j, f"Rank adaptation: {tt.ranks[j+1]} -> {new_rank}")
                 tt.ranks = tt.ranks[: j + 1] + (new_rank,) + tt.ranks[j + 2 :]
 
             Q = U[:, :new_rank]
-            R = np.diag(S[:new_rank]) @ V[:new_rank, :]
+            R = xp.diag(S[:new_rank]) @ V[:new_rank, :]
 
             dummy_core1 = TensorCore.dummy(
                 (tt.ranks[j], tt.shape[j], new_rank),
@@ -108,7 +106,7 @@ def MALS(
             tt.cores[f"core_{j}"] = Y
             tt.cores[f"core_{j+1}"] = Z
 
-            # Q, R = np.linalg.qr(W)
+            # Q, R = xp.linalg.qr(W)
             # Q = Q[:, : tt.ranks[j + 1]]
             # R = R[: tt.ranks[j + 1], :]
             # tt.cores[f"core_{j}"] = TensorCore.like(Q, tt.cores[f"core_{j}"])
@@ -120,17 +118,17 @@ def MALS(
             # Micro optimization
             W = micro_optimization(tt, j - 1)
 
-            U, S, V = np.linalg.svd(W.T)
+            U, S, V = xp.linalg.svd(W.T)
 
             # Compute the new rank as the number of singular values that are greater than a threshold
-            new_rank = np.minimum(np.sum(S / S[0] > threshold), max_ranks[j - 1])
+            new_rank = xp.minimum(xp.sum(S / S[0] > threshold), max_ranks[j - 1])
 
             if new_rank != tt.ranks[j]:
                 print(j, f"Rank adaptation: {tt.ranks[j]} -> {new_rank}")
                 tt.ranks = tt.ranks[:j] + (new_rank,) + tt.ranks[j + 1 :]
 
             Q = U[:, :new_rank]
-            R = np.diag(S[:new_rank]) @ V[:new_rank, :]
+            R = xp.diag(S[:new_rank]) @ V[:new_rank, :]
 
             dummy_core1 = TensorCore.dummy(
                 (tt.ranks[j - 1], tt.shape[j], new_rank),
@@ -147,7 +145,7 @@ def MALS(
             tt.cores[f"core_{j-1}"] = Y
             tt.cores[f"core_{j}"] = Z
 
-            # Q, R = np.linalg.qr(W.T)
+            # Q, R = xp.linalg.qr(W.T)
             # Q = Q[:, : tt.ranks[j]]
             # R = R[: tt.ranks[j], :]
             # tt.cores[f"core_{j-1}"] = TensorCore.like(R.T, tt.cores[f"core_{j-1}"])

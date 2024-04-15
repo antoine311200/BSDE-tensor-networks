@@ -4,7 +4,7 @@ from bsde_solver.core.optimisation.als import ALS, ALS_regularized
 from bsde_solver.core.optimisation.mals import MALS
 from bsde_solver.utils import fast_contract
 
-import numpy as np
+from bsde_solver import xp
 from time import perf_counter
 from functools import partial
 
@@ -19,13 +19,13 @@ def run(phis, b, algo):
     print("Time:", end_time_batch)
 
     batch_phis = TensorNetwork(cores=phis)
-    result = fast_contract(ALS_result, batch_phis).view(np.ndarray).squeeze()
+    result = fast_contract(ALS_result, batch_phis).view(xp.ndarray).squeeze()
 
-    l2 = np.linalg.norm(result - b)
-    l1 = np.linalg.norm(result - b, ord=1)
+    l2 = xp.linalg.norm(result - b)
+    l1 = xp.linalg.norm(result - b, ord=1)
     print("Reconstruction error (total)   L2:", round(l2, 4), "   L1:", round(l1, 4))
-    print("Mean reconstruction error ", round(np.mean(np.abs(result - b)), 4))
-    print("Maximum reconstruction error:", round(np.max(np.abs(result - b)), 4))
+    print("Mean reconstruction error ", round(xp.mean(xp.abs(result - b)), 4))
+    print("Maximum reconstruction error:", round(xp.max(xp.abs(result - b)), 4))
     print("Ground truth samples:", [round(c, 3) for c in b[:10]])
     print("Reconstruction samples:", [round(c, 3) for c in result[:10]])
 
@@ -40,17 +40,17 @@ if __name__ == "__main__":
     ranks = (1, ) + (dim,) * (num_assets - 1) + (1, )
 
     def poly(x, degree=10):
-        return np.array([x**i for i in range(degree)]).T#] + [np.log(1/2+1/2*x**2)
+        return xp.array([x**i for i in range(degree)]).T#] + [xp.log(1/2+1/2*x**2)
 
     def poly_derivative(x, degree=10):
-        return np.array([i * x ** (i - 1) for i in range(degree)]).T #] + [2*x/(1+x**2)
+        return xp.array([i * x ** (i - 1) for i in range(degree)]).T #] + [2*x/(1+x**2)
 
     n_simulations = 1000
     xs, phis, dphis = [], [], []
 
-    np.random.seed(seed)
+    xp.random.seed(seed)
     for i in range(n_simulations):
-        x = (np.random.rand(num_assets)-1/2)
+        x = (xp.random.rand(num_assets)-1/2)
         phi = [TensorCore(poly(x[i], degree=degree), name=f"phi_{i+1}", indices=(f"m_{i+1}",)) for i in range(num_assets)]
         dphi = [TensorCore(poly_derivative(x[i], degree=degree), name=f"dphi_{i+1}", indices=(f"m_{i+1}",),) for i in range(num_assets)]
 
@@ -59,9 +59,9 @@ if __name__ == "__main__":
         dphis.append(dphi)
 
     # Relu of x
-    # b = np.maximum(0, np.mean(np.array(xs), axis=1))
-    b = np.linalg.norm(np.array(xs), axis=1) ** 2
-    # b = np.log(1/2+1/2*np.linalg.norm(np.array(xs)**2, axis=1))
+    # b = xp.maximum(0, xp.mean(xp.array(xs), axis=1))
+    b = xp.linalg.norm(xp.array(xs), axis=1) ** 2
+    # b = xp.log(1/2+1/2*xp.linalg.norm(xp.array(xs)**2, axis=1))
 
     #################### Batch ALS ####################
 
@@ -73,8 +73,8 @@ if __name__ == "__main__":
         phis.append(phi)
         dphis.append(dphi)
 
-    phis = np.array(phis) # (n_simulations, tt.order, degree)
-    dphis = np.array(dphis) # (n_simulations, tt.order, degree)
+    phis = xp.array(phis) # (n_simulations, tt.order, degree)
+    dphis = xp.array(dphis) # (n_simulations, tt.order, degree)
 
     phis = phis.transpose((1, 0, 2)) # (tt.order, n_simulations, degree)
     dphis = dphis.transpose((1, 0, 2)) # (tt.order, n_simulations, degree)

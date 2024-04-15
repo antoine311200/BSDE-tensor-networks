@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Any
 
 import re
-import numpy as np
+from bsde_solver import xp
 from copy import deepcopy
 from opt_einsum import contract, contract_path
 
@@ -116,7 +116,7 @@ class TensorNetwork:
                 batch_index = core.indices.index('batch')
                 permutation = list(range(len(core.indices)))
                 permutation[0], permutation[batch_index] = permutation[batch_index], permutation[0]
-                transposed_core = core.view(type=np.ndarray).transpose(permutation)
+                transposed_core = core.view(type=xp.ndarray).transpose(permutation)
                 subtensor = transposed_core[idx, ...]
                 sampled_cores.append(TensorCore(subtensor, indices=core.indices[1:]))
             return TensorNetwork(sampled_cores, names=list(self.cores.keys()))

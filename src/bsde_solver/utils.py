@@ -1,10 +1,10 @@
-import numpy as np
+from bsde_solver import xp
 
 def matricized(core, mode="left"):
     if mode == "right":
-        return core.reshape((-1, np.prod(core.shape[1:])))
+        return core.reshape((-1, xp.prod(core.shape[1:])))
     elif mode == "left":
-        return core.reshape((np.prod(core.shape[:-1]), -1))
+        return core.reshape((xp.prod(core.shape[:-1]), -1))
     else:
         raise ValueError("mode must be either 'left' or 'right'")
 
@@ -27,7 +27,7 @@ def fast_contract(tt, x):
     return V
 
 
-batch_qr = np.vectorize(np.linalg.qr, signature='(m,n)->(m,p),(p,n)')
+# batch_qr = xp.vectorize(xp.linalg.qr, signature='(m,n)->(m,p),(p,n)')
 
 from bsde_solver.core.tensor.tensor_core import TensorCore
 
@@ -38,9 +38,9 @@ def compute_solution(X, V0, basis): # (batch_size, num_assets), (TT, ), (Basis, 
     print(f"phi_X: {phi_X}")
     print(f"V0: {V0}")
 
-    print([np.array(core) for core in phi_X])
+    print([xp.array(core) for core in phi_X])
 
-    # phi = np.stack([basis.eval(X[:, i]) for i in range(num_assets)], axis=0)
+    # phi = xp.stack([basis.eval(X[:, i]) for i in range(num_assets)], axis=0)
     # # print(phi.shape)
 
     # for k in range(batch_size):
@@ -50,5 +50,5 @@ def compute_solution(X, V0, basis): # (batch_size, num_assets), (TT, ), (Basis, 
     #     print()
 
 
-    Ys = np.array(fast_contract_2(V0, phi_X))
+    Ys = xp.array(fast_contract(V0, phi_X))
     return Ys

@@ -1,15 +1,14 @@
-from bsde_solver import reload_backend
-reload_backend("numpy")
 from bsde_solver import xp
+import cupy as cp
 
 import matplotlib.pyplot as plt
 
 from bsde_solver.bsde import BackwardSDE, HJB, DoubleWellHJB, BlackScholes, AllenCahn
 from bsde_solver.stochastic.path import generate_trajectories
 from bsde_solver.core.tensor.tensor_network import TensorNetwork
-# from bsde_solver.core.tensor.tensor_train import BatchTensorTrain
+from bsde_solver.core.tensor.tensor_train import BatchTensorTrain
 from bsde_solver.core.tensor.tensor_core import TensorCore
-from bsde_solver.core.calculus.derivative import multi_derivative
+from bsde_solver.core.calculus.derivative import batch_derivative, multi_derivative
 from bsde_solver.core.calculus.hessian import hessian
 from bsde_solver.core.optimisation.als import ALS
 from bsde_solver.core.optimisation.mals import MALS
@@ -19,24 +18,26 @@ from bsde_solver.utils import flatten, fast_contract
 
 import time
 
-batch_size = 5000
+batch_size = 2000
 T = 1
-N = 2
+N = 100
 num_assets = 10
 dt = T / N
 solver = "als"
 
 n_iter = 20
 rank = 3
-degree = 5
+degree = 3
 shape = tuple([degree for _ in range(num_assets)])
 ranks = (1,) + (rank,) * (num_assets - 1) + (1,)
 
 basis = PolynomialBasis(degree)
 
 # xo = xp.zeros(num_assets)
-xo = xp.array(flatten([(1, 0.5) for _ in range(num_assets//2)])) # Black-Scholes initial condition
-X0 = xp.tile(xo, (batch_size, 1))
+# xo = xp.array(flatten([(1, 0.5) for _ in range(num_assets//2)])) # Black-Scholes initial condition
+# X0 = xp.tile(xo, (batch_size, 1))
+xo = cp.array(flatten([(1, 0.5) for _ in range(num_assets//2)])).astype(cp.float32) # Black-Scholes initial condition
+X0 = cp.tile(xo, (batch_size, 1))
 
 # model = HJB(X0=X0, delta_t=dt, T=T, sigma=xp.sqrt(2))
 sigma = 0.4
@@ -136,7 +137,7 @@ for n in range(N - 1, -1, -1):
 end_time = time.perf_counter()
 
 print(f"Total time: {end_time - start_time:.2f}s")
-print(f"Mean step time: {xp.mean(xp.array(step_times)):.2f}s\n")
+print(f"Mean step time: {xp.mean(step_times):.2f}s\n")
 
 ground_truth = model.price(xo[None, :], 0, n_sims=50_000).item()
 print(f"Predicted price at 0: {Y[0, 0]:.4f} | Ground price at 0: {ground_truth:.4f}")
@@ -150,13 +151,13 @@ colormap = plt.cm.viridis
 
 simulation_indices = xp.random.choice(batch_size, n_simulations, replace=False)
 for j in range(len(simulation_indices)):
-    predicted_prices = [Y[simulation_indices[j], i].item() for i in range(N + 1)]
-    ground_prices = [model.price(xp.array([X[simulation_indices[j], i]]), i * dt, n_sims=50_000).item() for i in range(N + 1)]
+    predicted_prices = [Y[simulation_indices[j], i] for i in range(N + 1)]
+    ground_prices = [model.price(xp.array([X[simulation_indices[j], i]]), i * dt, n_sims=50_000) for i in range(N + 1)]
 
     plt.plot(predicted_prices, label=f"Price #{j}", linestyle="--", color=colormap(j / n_simulations), lw=0.8)
     plt.plot(ground_prices, label=f"Ground Price #{j}", linestyle="-", color=colormap(j / n_simulations), lw=0.8)
 
-plt.scatter([0], [xp.mean(Y[:, 0]).item()], color="red", label="Predicted Price at 0", marker="x")
+plt.scatter([0], [xp.mean(Y[:, 0])], color="red", label="Predicted Price at 0", marker="x")
 plt.scatter([0], [ground_truth], color="red", label="Ground Price at 0", marker="o")
 plt.xlabel("Time")
 plt.ylabel("Price")
@@ -164,10 +165,9 @@ plt.title(f"Evolutions of prices | {configurations}")
 plt.legend()
 plt.show()
 
-import numpy
 plt.figure(figsize=(10, 5))
-plt.plot(numpy.linspace(0, T, N + 1), [x.item() for x in mean_relative_errors[::-1]], label="Mean relative error")
-plt.plot(numpy.linspace(0, T, N + 1), [x.item() for x in max_relative_errors[::-1]], label="Max relative error")
+plt.plot(xp.linspace(0, T, N + 1), mean_relative_errors[::-1], label="Mean relative error")
+plt.plot(xp.linspace(0, T, N + 1), max_relative_errors[::-1], label="Max relative error")
 plt.xlabel("Time")
 plt.ylabel("Relative error")
 plt.title(f"Relative errors | {configurations}")

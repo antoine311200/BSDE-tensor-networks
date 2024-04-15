@@ -1,16 +1,16 @@
 from time import perf_counter
 
-import numpy as np
+from bsde_solver import xp
 
 from bsde_solver.core.tensor.tensor_core import TensorCore
 from bsde_solver.core.tensor.tensor_network import TensorNetwork
 from bsde_solver.core.optimisation.mals import scalar_MALS
 
 def poly(x, degree=10):
-    return np.array([x**i for i in range(degree)]).T
+    return xp.array([x**i for i in range(degree)]).T
 
 def poly_derivative(x, degree=10):
-    return np.array([i * x ** (i - 1) for i in range(degree)]).T
+    return xp.array([i * x ** (i - 1) for i in range(degree)]).T
 
 
 if __name__ == "__main__":
@@ -26,9 +26,9 @@ if __name__ == "__main__":
     n_simulations = 1
     phis, dphis = [], []
 
-    np.random.seed(seed)
+    xp.random.seed(seed)
     for i in range(n_simulations):
-        x = np.random.rand(num_assets)*4
+        x = xp.random.rand(num_assets)*4
 
         phi = [TensorCore(poly(x[i], degree=degree), name=f"phi_{i+1}", indices=(f"m_{i+1}",)) for i in range(num_assets)]
         dphi = [TensorCore(poly_derivative(x[i], degree=degree), name=f"dphi_{i+1}", indices=(f"m_{i+1}",),) for i in range(num_assets)]
@@ -36,7 +36,7 @@ if __name__ == "__main__":
         phis.append(phi)
         dphis.append(dphi)
 
-    b = np.random.rand(n_simulations)*10
+    b = xp.random.rand(n_simulations)*10
     print(b)
 
     #################### Single ALS ####################
@@ -52,9 +52,9 @@ if __name__ == "__main__":
 
     results = []
     for i in range(n_simulations):
-        result = TensorNetwork(cores=[min_tt[i]]+phis[i], names=["tt"]+[f"phi_{i+1}" for i in range(num_assets)]).contract().view(np.ndarray).squeeze()
-        print("Reconstruction error:", np.linalg.norm(result - b[i]))
-        # print("Result:", np.round(result, 5), "Expected:", np.round(b[i], 5))
+        result = TensorNetwork(cores=[min_tt[i]]+phis[i], names=["tt"]+[f"phi_{i+1}" for i in range(num_assets)]).contract().view(xp.ndarray).squeeze()
+        print("Reconstruction error:", xp.linalg.norm(result - b[i]))
+        # print("Result:", xp.round(result, 5), "Expected:", xp.round(b[i], 5))
 
         results.append(float(result))
 

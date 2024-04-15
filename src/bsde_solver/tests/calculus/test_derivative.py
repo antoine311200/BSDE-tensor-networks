@@ -1,6 +1,6 @@
 from time import perf_counter
 
-import numpy as np
+from bsde_solver import xp
 
 from bsde_solver.core.tensor.tensor_train import TensorTrain, BatchTensorTrain
 from bsde_solver.core.tensor.tensor_core import TensorCore
@@ -17,16 +17,16 @@ if __name__ == "__main__":
     tt.randomize()
 
     def poly(x, degree=10):
-        return np.array([x**i for i in range(degree)]).T
+        return xp.array([x**i for i in range(degree)]).T
 
     def poly_derivative(x, degree=10):
-        return np.array([i * x ** (i - 1) for i in range(degree)]).T
+        return xp.array([i * x ** (i - 1) for i in range(degree)]).T
 
     n_simulations = 1000
     phis, dphis = [], []
-    np.random.seed(0)
+    xp.random.seed(0)
     for i in range(n_simulations):
-        x = np.random.rand(num_assets)
+        x = xp.random.rand(num_assets)
 
         phi = [
             TensorCore(
@@ -58,16 +58,16 @@ if __name__ == "__main__":
     #################### Batch derivative ####################
 
     phis, dphis = [], []
-    np.random.seed(0)
+    xp.random.seed(0)
     for i in range(n_simulations):
-        x = np.random.rand(num_assets)
+        x = xp.random.rand(num_assets)
 
         phi = [poly(x[i], degree=degree) for i in range(tt.order)]
         dphi = [poly_derivative(x[i], degree=degree) for i in range(tt.order)]
         phis.append(phi)
         dphis.append(dphi)
-    phis = np.array(phis) # (n_simulations, tt.order, degree)
-    dphis = np.array(dphis) # (n_simulations, tt.order, degree)
+    phis = xp.array(phis) # (n_simulations, tt.order, degree)
+    dphis = xp.array(dphis) # (n_simulations, tt.order, degree)
 
     phis = phis.transpose((1, 0, 2)) # (tt.order, n_simulations, degree)
     dphis = dphis.transpose((1, 0, 2)) # (tt.order, n_simulations, degree)
@@ -87,13 +87,13 @@ if __name__ == "__main__":
 
     # from torch import autograd, tensor, einsum
 
-    # tsr = batch_tt.contract(batch=True).view(np.ndarray).squeeze()
+    # tsr = batch_tt.contract(batch=True).view(xp.ndarray).squeeze()
     # tsr = autograd.Variable(tensor(tsr).float(), requires_grad=True).flatten()
 
 
     # print(phis.shape)
 
-    # prodphis = np.einsum('a,b,c,d,e->abcde', phis[0].squeeze(), phis[1].squeeze(), phis[2].squeeze(), phis[3].squeeze(), phis[4].squeeze())
+    # prodphis = xp.einsum('a,b,c,d,e->abcde', phis[0].squeeze(), phis[1].squeeze(), phis[2].squeeze(), phis[3].squeeze(), phis[4].squeeze())
     # prodphis = autograd.Variable(tensor(prodphis).float(), requires_grad=True).flatten()
 
     # dot = einsum('a,a->', prodphis, tsr).squeeze().sum()
@@ -104,4 +104,4 @@ if __name__ == "__main__":
     # print(len(grad))
     # print(grad[0].shape)
     # Check if the results are the same
-    # print(np.allclose(derivatives, batch_derivatives))
+    # print(xp.allclose(derivatives, batch_derivatives))

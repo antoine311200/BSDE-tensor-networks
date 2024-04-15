@@ -1,5 +1,5 @@
 from opt_einsum import contract, contract_path
-import numpy as np
+from bsde_solver import xp
 from time import perf_counter
 import sys
 
@@ -8,8 +8,8 @@ degree = 5
 num_assets = 10
 rank = 4
 
-phis = [np.random.rand(batch_size, degree) for _ in range(num_assets)]
-cores = [np.random.rand(1, degree, rank)] + [np.random.rand(rank, degree, rank) for _ in range(num_assets - 2)] + [np.random.rand(rank, degree, 1)]
+phis = [xp.random.rand(batch_size, degree) for _ in range(num_assets)]
+cores = [xp.random.rand(1, degree, rank)] + [xp.random.rand(rank, degree, rank) for _ in range(num_assets - 2)] + [xp.random.rand(rank, degree, 1)]
 
 phis_indices = [("batch", f"m_{i+1}") for i in range(num_assets)]
 cores_indices = [(f"r_{i}", f"m_{i+1}", f"r_{i+1}") for i in range(num_assets)]
@@ -62,5 +62,5 @@ end_time = perf_counter() - start_time
 print("Time:", end_time)
 
 results.append(result)
-results = np.stack(results)
+results = xp.stack(results)
 print(results.shape)

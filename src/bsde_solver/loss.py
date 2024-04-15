@@ -1,4 +1,4 @@
-import numpy as np
+from bsde_solver import xp
 
 from bsde_solver.bsde import BackwardSDE
 
@@ -14,21 +14,21 @@ class PDELoss:
 
         Args:
             t (float): Time.
-            x (np.ndarray): Space.
-            v (np.ndarray): Value function.
-            vt (np.ndarray): Time derivative of the value function.
-            vx (np.ndarray): Space derivative of the value function.
-            vxx (np.ndarray): Second space derivative of the value function.
+            x (xp.ndarray): Space.
+            v (xp.ndarray): Value function.
+            vt (xp.ndarray): Time derivative of the value function.
+            vx (xp.ndarray): Space derivative of the value function.
+            vxx (xp.ndarray): Second space derivative of the value function.
 
         Returns:
-            np.ndarray: Loss.
+            xp.ndarray: Loss.
         """
         sigma = self.model.sigma(x, t)
         print(sigma.shape)
         sigma2 = sigma.T @ sigma
         z = (vx @ sigma) if len(sigma.shape) != 1 else sigma * vx
-        loss = vt + np.sum(self.model.b(x, t) * z, axis=1)
-        loss += 1/2 * np.sum(sigma2 * vxx, axis=(1, 2))
+        loss = vt + xp.sum(self.model.b(x, t) * z, axis=1)
+        loss += 1/2 * xp.sum(sigma2 * vxx, axis=(1, 2))
         loss += self.model.h(x, t, v, vx)
         return loss
 
