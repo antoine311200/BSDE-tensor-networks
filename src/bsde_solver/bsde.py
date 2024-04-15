@@ -27,7 +27,7 @@ class BackwardSDE:
     def g(self, x):
         pass
 
-    def price(self, X, t):
+    def price(self, X, t, n_sims=1000):
         pass
 
 
@@ -51,7 +51,7 @@ class BlackScholes(BackwardSDE):
         def g(self, x):
             return np.linalg.norm(x, axis=1) ** 2
 
-        def price(self, X, t):
+        def price(self, X, t, n_sims=1000):
             return np.exp((self.r + self.sigma_**2)*(self.T-t)) * np.mean(self.g(X))
 
 class MultiAssetGaussian(BackwardSDE):
