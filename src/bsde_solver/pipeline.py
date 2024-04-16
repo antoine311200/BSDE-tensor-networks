@@ -31,31 +31,31 @@ elif mode == "MALS":
 
 batch_size = 2000
 T = 1
-N = 10
-num_assets = 6
+N = 5
+num_assets = 100
 dt = T / N
 
 n_iter = 50
-rank = 5
-degree = 5
+rank = 3
+degree = 3
 shape = tuple([degree for _ in range(num_assets)])
 ranks = (1,) + (rank,) * (num_assets - 1) + (1,)
 
 # basis = LegendreBasis(degree)
 basis = PolynomialBasis(degree)
 
-# X0 = xp.zeros(num_assets) # Hamilton-Jacobi-Bellman (HJB) initial condition
+X0 = xp.zeros(num_assets) # Hamilton-Jacobi-Bellman (HJB) initial condition
 # X0 = xp.zeros(num_assets) # Allen-Cahn initial condition
-X0 = xp.array(flatten([(2., 3.5) for _ in range(num_assets//2)])) # Black-Scholes initial condition
+# X0 = xp.array(flatten([(2., 3.5) for _ in range(num_assets//2)])) # Black-Scholes initial condition
 # X0 = -xp.ones(num_assets) # Double-well HJB initial condition
 
 X0_batch = xp.broadcast_to(X0, (batch_size, num_assets))
 
 sigma = 0.4
 r = 0.05
-model = BlackScholes(X0, dt, T, r, sigma)
+# model = BlackScholes(X0, dt, T, r, sigma)
 # model = AllenCahn(X0, dt, T)
-# model = HJB(X0_batch, dt, T, sigma=xp.sqrt(2))
+model = HJB(X0_batch, dt, T, sigma=xp.sqrt(2))
 # nu = xp.array([0.05 for _ in range(num_assets)])
 #model =DoubleWellHJB(X0, dt, T, nu)
 pde_loss = PDELoss(model)

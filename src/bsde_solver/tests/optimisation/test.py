@@ -30,6 +30,7 @@ def run(phis, b, algo):
     print("Reconstruction samples:", [round(c, 3) for c in result[:10]])
 
 if __name__ == "__main__":
+    print(f"Running tests for the optimisation module")
 
     seed = 216540
     degree = 3

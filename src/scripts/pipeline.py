@@ -1,5 +1,5 @@
 from bsde_solver import reload_backend
-reload_backend("numpy")
+reload_backend("cupy")
 from bsde_solver import xp
 
 import matplotlib.pyplot as plt
@@ -21,13 +21,13 @@ import time
 
 batch_size = 2000
 T = 1
-N = 100
-num_assets = 10
+N = 5
+num_assets = 100
 dt = T / N
 
 n_iter = 20
 rank = 3
-degree = 4
+degree = 3
 shape = tuple([degree for _ in range(num_assets)])
 ranks = (1,) + (rank,) * (num_assets - 1) + (1,)
 solver = "als"
