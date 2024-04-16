@@ -256,8 +256,7 @@ def SALSA(
                 tt.cores[f"core_{j-1}"] = TensorCore.like(U, core_prev)
                 tt.cores[f"core_{j}"] = TensorCore.like(W, core_curr)
 
-                gamma = np.diag(1 / np.maximum(S, min_sv))
-
+                gamma = np.diag(np.nan_to_num(1 / np.maximum(S, min_sv), posinf=0, neginf=0))
 
                 # print("Gamma:", 1 / np.maximum(S, min_sv), S)
             if j != tt.order - 1:
@@ -273,7 +272,9 @@ def SALSA(
 
                 tt.cores[f"core_{j}"] = TensorCore.like(W, core_curr)
                 tt.cores[f"core_{j+1}"] = TensorCore.like(Z, core_next)
-                theta = np.diag(1 / np.maximum(S, min_sv))
+                theta = np.diag(np.nan_to_num(1 / np.maximum(S, min_sv), posinf=0, neginf=0))
+
+                # print("Theta:", 1 / np.maximum(S, min_sv), S)
 
                 # print("Theta:", 1 / np.maximum(S, min_sv), S)
 
@@ -288,7 +289,7 @@ def SALSA(
         eval = TensorNetwork(cores=[V, last_core], names=["V", f"core_{j}"]).contract().view(np.ndarray)
         eta_tmp = eta
         eta = 1/V.size("batch") * np.linalg.norm(eval - result)**2
-        rel_eta = (eta_tmp - eta) / eta_tmp
+        rel_eta = abs(eta_tmp - eta) / eta_tmp
         # const = TensorNetwork(cores=[R, X], names=["R", "X"]).contract().view(np.ndarray)
         omega = min(omega / freq_omega, max(eta, np.sqrt(eta)))
         omega = max(omega, rel_eta)

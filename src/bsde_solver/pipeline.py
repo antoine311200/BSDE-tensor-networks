@@ -22,11 +22,12 @@ import time
 profiler = cProfile.Profile()
 profiler.enable()
 
-mode = "MALS"
+mode = "SALSA"
+# mode = "ALS"
 if mode == "ALS":
     optimizer = ALS
 elif mode == "SALSA":
-    optimizer = SALSA
+    optimizer = partial(SALSA, max_rank=5)
 elif mode == "MALS":
     optimizer = partial(MALS, threshold=1e-3)
 
@@ -37,7 +38,7 @@ num_assets = 6
 dt = T / N
 
 n_iter = 20
-rank = 3
+rank = 2
 degree = 3
 shape = tuple([degree for _ in range(num_assets)])
 ranks = (1,) + (rank,) * (num_assets - 1) + (1,)
@@ -92,9 +93,6 @@ check_V = fast_contract(V_N, phi_X[-1]).view(np.ndarray).squeeze()
 
 print("Mean reconstruction error at N:", f"{np.abs(np.mean(check_V - Y[:, -1])):.2e}")
 print("Prediction at N:", f"{np.mean(Y[:, -1]):.4f} | Value at N:", f"{np.mean(check_V):.4f}")
-
-import sys
-sys.exit()
 
 print("Compute true prices")
 prices = []
