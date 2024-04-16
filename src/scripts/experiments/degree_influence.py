@@ -1,6 +1,6 @@
 from bsde_solver.core.tensor.tensor_core import TensorCore
 from bsde_solver.core.tensor.tensor_network import TensorNetwork
-from bsde_solver.core.optimisation.als import ALS, ALS_regularized
+from bsde_solver.core.optimisation.als import ALS, SALSA
 from bsde_solver.core.optimisation.mals import MALS
 from bsde_solver.utils import fast_contract
 
@@ -57,11 +57,11 @@ if __name__ == "__main__":
 
     result_dict = {}
 
-    n_assets = [6]
+    n_assets = [4]
     batch_sizes = [1000]
     # degrees = [1, 2, 3, 4, 5]
     degrees = [4]
-    n_iters = [1, 10, 25, 50, 100, 250, 500]#[1, 2, 3, 4, 6, 8, 10, 25, 50]
+    n_iters = [1, 2, 3, 4, 6, 8, 10, 25, 50]#[1, 10, 25, 50, 100, 250, 500]#
     ranks = [2]
 
     # funcs = [lambda x: np.sum(x, axis=1), lambda x: np.sum(x**2, axis=1), lambda x: np.sum(x**3, axis=1), lambda x: np.sum(x**4, axis=1)]
@@ -89,10 +89,17 @@ if __name__ == "__main__":
         print('~'*50)
         print(f"n_asset: {n_asset}, batch_size: {batch_size}, degree: {degree}")
 
+        # algo = partial(
+        #     ALS,
+        #     n_iter=n_iter,
+        #     ranks=(1, ) + (rank,) * (n_asset - 1) + (1, ),
+        #     optimizer="lstsq",
+        # )
         algo = partial(
-            ALS,
+            SALSA,
             n_iter=n_iter,
             ranks=(1, ) + (rank,) * (n_asset - 1) + (1, ),
+            max_rank=2,
             optimizer="lstsq",
         )
 
@@ -163,6 +170,7 @@ if __name__ == "__main__":
         plt.tight_layout()
         # plt.xlabel("Degree")
         plt.savefig(f"../Images/{metric}_errors.png", transparent=True, dpi=200)
-        plt.show()
+        # plt.show()
+        plt.close()
 
     # plt.show()

@@ -1,6 +1,6 @@
 from bsde_solver.core.tensor.tensor_core import TensorCore
 from bsde_solver.core.tensor.tensor_network import TensorNetwork
-from bsde_solver.core.optimisation.als import ALS, ALS_regularized
+from bsde_solver.core.optimisation.als import ALS, SALSA
 from bsde_solver.core.optimisation.mals import MALS
 from bsde_solver.utils import fast_contract
 
@@ -10,7 +10,7 @@ from functools import partial
 
 def run(phis, b, algo):
     start_time_batch = perf_counter()
-    # ALS_result = ALS_regularized(phis, b, n_iter=25, ranks=ranks)
+    # ALS_result = SALSA(phis, b, n_iter=25, ranks=ranks)
     # ALS_result = ALS(phis, b, n_iter=25, ranks=ranks)
     # ALS_result = MALS(phis, b, n_iter=50, ranks=ranks, threshold=1e-6, max_rank=10)
     ALS_result = algo(phis, b)
@@ -33,7 +33,7 @@ if __name__ == "__main__":
 
     seed = 216540
     degree = 3
-    num_assets = 8
+    num_assets = 5
 
     shape = [degree for _ in range(num_assets)]
     dim = 2
@@ -94,6 +94,14 @@ if __name__ == "__main__":
         optimizer="lstsq",
     ))
 
+    print(f"Run SALSA with LSTSQ optimization")
+    run(phis, b, partial(
+        SALSA,
+        n_iter=25,
+        ranks=ranks,
+        max_rank=8,
+    ))
+
     # print(f"Run ALS with LU optimization")
     # run(phis, b, partial(
     #     ALS,
@@ -110,14 +118,15 @@ if __name__ == "__main__":
     #     optimizer="solve",
     # ))
 
-    run(phis, b, partial(
-        MALS,
-        n_iter=10,
-        ranks=ranks,
-        threshold=1e-8,
-        max_rank=8,
-        optimizer="lstsq",
-    ))
+    # print(f"Run MALS with LSTSQ optimization")
+    # run(phis, b, partial(
+    #     MALS,
+    #     n_iter=100,
+    #     ranks=ranks,
+    #     threshold=1e-8,
+    #     max_rank=2,
+    #     optimizer="lstsq",
+    # ))
 
     # run(phis, b, partial(
     #     MALS,

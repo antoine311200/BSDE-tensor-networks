@@ -12,7 +12,7 @@ from bsde_solver.core.tensor.tensor_train import BatchTensorTrain
 from bsde_solver.core.tensor.tensor_core import TensorCore
 from bsde_solver.core.calculus.derivative import batch_derivative, multi_derivative
 from bsde_solver.core.calculus.hessian import hessian
-from bsde_solver.core.optimisation.als import ALS, ALS_regularized
+from bsde_solver.core.optimisation.als import ALS, SALSA
 from bsde_solver.core.optimisation.mals import MALS
 from bsde_solver.core.calculus.basis import LegendreBasis, PolynomialBasis
 from bsde_solver.loss import PDELoss
@@ -26,7 +26,7 @@ mode = "MALS"
 if mode == "ALS":
     optimizer = ALS
 elif mode == "SALSA":
-    optimizer = ALS_regularized
+    optimizer = SALSA
 elif mode == "MALS":
     optimizer = partial(MALS, threshold=1e-3)
 
