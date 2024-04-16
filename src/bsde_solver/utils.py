@@ -52,3 +52,15 @@ def compute_solution(X, V0, basis): # (batch_size, num_assets), (TT, ), (Basis, 
 
     Ys = np.array(fast_contract_2(V0, phi_X))
     return Ys
+
+from functools import partial
+from typing import Callable, Any
+
+def callable_name(any_callable: Callable[..., Any]) -> str:
+    if isinstance(any_callable, partial):
+        return any_callable.func.__name__
+
+    try:
+        return any_callable.__name__
+    except AttributeError:
+        return str(any_callable)

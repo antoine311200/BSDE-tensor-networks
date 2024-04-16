@@ -256,7 +256,8 @@ def SALSA(
                 tt.cores[f"core_{j-1}"] = TensorCore.like(U, core_prev)
                 tt.cores[f"core_{j}"] = TensorCore.like(W, core_curr)
 
-                gamma = np.diag(np.nan_to_num(1 / np.maximum(S, min_sv), posinf=0, neginf=0))
+                gamma = np.diag(np.nan_to_num(1 / np.maximum(S, min_sv), posinf=1e-6, neginf=1e-6))
+                # print(np.diagonal(gamma))
 
                 # print("Gamma:", 1 / np.maximum(S, min_sv), S)
             if j != tt.order - 1:
@@ -272,11 +273,13 @@ def SALSA(
 
                 tt.cores[f"core_{j}"] = TensorCore.like(W, core_curr)
                 tt.cores[f"core_{j+1}"] = TensorCore.like(Z, core_next)
-                theta = np.diag(np.nan_to_num(1 / np.maximum(S, min_sv), posinf=0, neginf=0))
+                theta = np.diag(np.nan_to_num(1 / np.maximum(S, min_sv), posinf=1e-6, neginf=1e-6))
 
                 # print("Theta:", 1 / np.maximum(S, min_sv), S)
 
                 # print("Theta:", 1 / np.maximum(S, min_sv), S)
+
+                # print(np.diagonal(theta))
 
             X, V, R, eta = micro_optimization(
                 tt, phis, result, j, gamma, theta, eta, start=(it == 0)

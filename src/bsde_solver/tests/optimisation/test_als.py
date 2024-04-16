@@ -33,7 +33,7 @@ if __name__ == "__main__":
 
     seed = 216540
     degree = 3
-    num_assets = 5
+    num_assets = 6
 
     shape = [degree for _ in range(num_assets)]
     dim = 2
@@ -94,12 +94,22 @@ if __name__ == "__main__":
         optimizer="lstsq",
     ))
 
+    # print(f"Run ALS with LSTSQ optimization")
+    # run(phis, b, partial(
+    #     MALS,
+    #     n_iter=10,
+    #     ranks=ranks,
+    #     threshold=1e-8,
+    #     optimizer="lstsq",
+    # ))
+
+
     print(f"Run SALSA with LSTSQ optimization")
     run(phis, b, partial(
         SALSA,
-        n_iter=25,
+        n_iter=10,
         ranks=ranks,
-        max_rank=8,
+        max_rank=5,
     ))
 
     # print(f"Run ALS with LU optimization")

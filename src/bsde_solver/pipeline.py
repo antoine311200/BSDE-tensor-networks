@@ -27,14 +27,14 @@ mode = "SALSA"
 if mode == "ALS":
     optimizer = ALS
 elif mode == "SALSA":
-    optimizer = partial(SALSA, max_rank=5)
+    optimizer = partial(SALSA, max_rank=5, optimizer="lu")
 elif mode == "MALS":
     optimizer = partial(MALS, threshold=1e-3)
 
 batch_size = 2000
 T = 1
 N = 10
-num_assets = 6
+num_assets = 8
 dt = T / N
 
 n_iter = 20
