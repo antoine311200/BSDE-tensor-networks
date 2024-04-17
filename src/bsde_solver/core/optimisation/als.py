@@ -112,6 +112,7 @@ def SALSA(
     init_tt=None,
     max_rank=10,
     optimizer="lstsq",
+    do_reg=True,
 ):
     shape = tuple([phi.shape[1] for phi in phis])
 
@@ -256,10 +257,10 @@ def SALSA(
                 tt.cores[f"core_{j-1}"] = TensorCore.like(U, core_prev)
                 tt.cores[f"core_{j}"] = TensorCore.like(W, core_curr)
 
-                gamma = np.diag(np.nan_to_num(1 / np.maximum(S, min_sv), posinf=1e-6, neginf=1e-6))
+                # print("Gamma:", 1 / np.maximum(S, min_sv), S)
+                gamma = np.diag(np.nan_to_num(1 / np.maximum(S, min_sv), posinf=1e-6, neginf=1e-6)) if do_reg else None
                 # print(np.diagonal(gamma))
 
-                # print("Gamma:", 1 / np.maximum(S, min_sv), S)
             if j != tt.order - 1:
                 core_curr = tt.cores[f"core_{j}"]
                 core_next = tt.cores[f"core_{j+1}"]
@@ -273,7 +274,8 @@ def SALSA(
 
                 tt.cores[f"core_{j}"] = TensorCore.like(W, core_curr)
                 tt.cores[f"core_{j+1}"] = TensorCore.like(Z, core_next)
-                theta = np.diag(np.nan_to_num(1 / np.maximum(S, min_sv), posinf=1e-6, neginf=1e-6))
+                # print("Gamma:", 1 / np.maximum(S, min_sv), S)
+                theta = np.diag(np.nan_to_num(1 / np.maximum(S, min_sv), posinf=1e-6, neginf=1e-6)) if do_reg else None
 
                 # print("Theta:", 1 / np.maximum(S, min_sv), S)
 

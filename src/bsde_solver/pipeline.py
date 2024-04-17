@@ -34,12 +34,12 @@ elif mode == "MALS":
 batch_size = 2000
 T = 1
 N = 10
-num_assets = 8
+num_assets = 10
 dt = T / N
 
 n_iter = 20
-rank = 2
-degree = 3
+rank = 3
+degree = 4
 shape = tuple([degree for _ in range(num_assets)])
 ranks = (1,) + (rank,) * (num_assets - 1) + (1,)
 
@@ -131,7 +131,10 @@ for n in range(N - 1, -1, -1):
 
     step_n1 = h_n1*dt + Y_n1 #- np.einsum('ij,ij->i', Z_n1, noise) * np.sqrt(dt)
     # np.sum(Z_n1 @ model.sigma(X_n1, (n+1) *dt) * noise, axis=1) * np.sqrt(dt) + Y_n1
-    V_n = optimizer(phi_X_n, step_n1, n_iter=n_iter, ranks=ranks, init_tt=V_n1)
+    if n == 0:
+        V_n = optimizer(phi_X_n, step_n1, n_iter=n_iter, ranks=ranks, init_tt=V_n1, do_reg=False)
+    else:
+        V_n = optimizer(phi_X_n, step_n1, n_iter=n_iter, ranks=ranks, init_tt=V_n1)
     V[n] = V_n
     Y_n = fast_contract(V_n, phi_X_n)
 
