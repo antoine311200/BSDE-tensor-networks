@@ -70,6 +70,7 @@ def run_pipeline(model, phi_X, dphi_X, ddphi_X, n_asset, batch_size, degree, n_i
     errors = []
 
     relative_errors.append(np.abs(prices[0] - np.mean(Y[:, 0]) / prices[0]))
+    errors.append(np.abs(prices[0] - np.mean(Y[:, 0])))
 
     for n in range(N - 1, -1, -1):
         print("Step:", n)
@@ -206,9 +207,9 @@ if __name__ == "__main__":
     # Show relative errors
     for key, (Y, V, step_times, relative_errors, errors) in result_dict.items():
         algo_name, n_asset, batch_size, degree, n_iter, rank = key
-        plt.plot(np.arange(N + 1), relative_errors, label=f"{algo_name} - {n_asset} assets", lw=0.8)
+        plt.plot(np.arange(N + 1), errors, label=f"{algo_name} - {n_asset} assets", lw=0.8)
 
     plt.xlabel("Time")
-    plt.ylabel("Relative error")
+    plt.ylabel("Error")
     plt.legend()
     plt.show()
