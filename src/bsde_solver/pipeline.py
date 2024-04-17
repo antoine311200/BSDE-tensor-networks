@@ -1,3 +1,5 @@
+from bsde_solver import reload_backend
+reload_backend("numpy")
 from bsde_solver import xp
 import cProfile
 from pstats import Stats
@@ -21,23 +23,25 @@ import time
 # profiler = cProfile.Profile()
 # profiler.enable()
 
+print(f"Using {xp.__name__} backend")
+
 mode = "SALSA"
 # mode = "ALS"
 if mode == "ALS":
     optimizer = ALS
 elif mode == "SALSA":
-    optimizer = partial(SALSA, max_rank=5, optimizer="lu")
+    optimizer = partial(SALSA, max_rank=5, optimizer="lstsq")
 elif mode == "MALS":
     optimizer = partial(MALS, threshold=1e-3)
 
 batch_size = 2000
 T = 1
 N = 10
-num_assets = 8
+num_assets = 4
 dt = T / N
 
 n_iter = 20
-rank = 2
+rank = 3
 degree = 3
 shape = tuple([degree for _ in range(num_assets)])
 ranks = (1,) + (rank,) * (num_assets - 1) + (1,)
@@ -128,9 +132,12 @@ for n in range(N - 1, -1, -1):
     sigma_n1 = model.sigma(X_n1, (n+1) *dt)
     h_n1 = model.h(X_n1, (n+1) * dt, Y_n1, Z_n1)  # (batch_size, )
 
-    step_n1 = h_n1*dt + Y_n1 #- xp.einsum('ij,ij->i', Z_n1, noise) * xp.sqrt(dt)
-    # xp.sum(Z_n1 @ model.sigma(X_n1, (n+1) *dt) * noise, axis=1) * xp.sqrt(dt) + Y_n1
-    V_n = optimizer(phi_X_n, step_n1, n_iter=n_iter, ranks=ranks, init_tt=V_n1)
+    step_n1 = h_n1*dt + Y_n1 #- np.einsum('ij,ij->i', Z_n1, noise) * np.sqrt(dt)
+    # np.sum(Z_n1 @ model.sigma(X_n1, (n+1) *dt) * noise, axis=1) * np.sqrt(dt) + Y_n1
+    if n == 0:
+        V_n = optimizer(phi_X_n, step_n1, n_iter=n_iter, ranks=ranks, init_tt=V_n1, do_reg=False)
+    else:
+        V_n = optimizer(phi_X_n, step_n1, n_iter=n_iter, ranks=ranks, init_tt=V_n1)
     V[n] = V_n
     Y_n = fast_contract(V_n, phi_X_n)
 
