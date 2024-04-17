@@ -21,13 +21,13 @@ import time
 
 batch_size = 2000
 T = 1
-N = 5
-num_assets = 100
+N = 10
+num_assets = 4
 dt = T / N
 
 n_iter = 20
 rank = 3
-degree = 3
+degree = 2
 shape = tuple([degree for _ in range(num_assets)])
 ranks = (1,) + (rank,) * (num_assets - 1) + (1,)
 solver = "als"
@@ -173,47 +173,3 @@ plt.ylabel("Relative error")
 plt.title(f"Relative errors | {configurations}")
 plt.legend()
 plt.show()
-
-# for n in range(N + 1):
-#     cores = [xp.array(core) for core in V[n].cores.values()]
-
-
-#     print([core.shape for core in cores])
-
-#     cores = [core.reshape(degree, -1) for core in cores]
-
-#     plt.figure(figsize=(10, 5))
-#     plt.subplot(1, 2, 1)
-#     plt.imshow(cores[0])
-#     plt.title("Core 1")
-#     plt.subplot(1, 2, 2)
-#     plt.imshow(cores[1])
-#     plt.title("Core 2")
-#     plt.suptitle(f"Core shapes at n={n} | {configurations}")
-# plt.show()
-
-
-
-# from bsde_solver.utils import compute_solution
-
-
-# print("=====================================\n")
-
-
-# discretization = 5
-# x = xp.linspace(-10, 10, discretization)
-# X = xp.tile(x, (num_assets, 1)).T
-# X[:, 1] = 2 * X[:, 1]
-# V0 = V[0]
-
-# Ys = compute_solution(X, V0, basis)
-
-# # print(Ys.shape)
-# # print(Ys)
-
-# plt.figure(figsize=(10, 5))
-# plt.plot(x, Ys)
-# plt.xlabel("x")
-# plt.ylabel("Y")
-# plt.title(f"Solution at 0 | {configurations}")
-# plt.show()

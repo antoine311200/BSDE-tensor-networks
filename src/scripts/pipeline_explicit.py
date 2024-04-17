@@ -4,27 +4,23 @@ import matplotlib.pyplot as plt
 
 from bsde_solver.bsde import BackwardSDE, HJB, DoubleWellHJB, BlackScholes, AllenCahn
 from bsde_solver.stochastic.path import generate_trajectories
-from bsde_solver.core.tensor.tensor_network import TensorNetwork
-from bsde_solver.core.tensor.tensor_train import BatchTensorTrain
+from bsde_solver.core.calculus.derivative import multi_derivative
 from bsde_solver.core.tensor.tensor_core import TensorCore
-from bsde_solver.core.calculus.derivative import batch_derivative, multi_derivative
-from bsde_solver.core.calculus.hessian import hessian
-from bsde_solver.core.optimisation.als import ALS
-from bsde_solver.core.calculus.basis import LegendreBasis, PolynomialBasis
-from bsde_solver.loss import PDELoss
-from bsde_solver.utils import flatten, fast_contract
+from bsde_solver.core.optimisation.als import ALS, SALSA
+from bsde_solver.core.calculus.basis import  PolynomialBasis
+from bsde_solver.utils import fast_contract
 
 import time
 
 batch_size = 2000
 T = 1
-N = 10
-num_assets = 10
+N = 100
+num_assets = 4
 dt = T / N
 
-n_iter = 10
-n_iter_implicit = 10
-rank = 2
+n_iter = 20
+n_iter_implicit = 30
+rank = 3
 degree = 3
 shape = tuple([degree for _ in range(num_assets)])
 ranks = (1,) + (rank,) * (num_assets - 1) + (1,)
@@ -38,7 +34,7 @@ model = HJB(X0=X0, delta_t=dt, T=T, sigma=xp.sqrt(2))
 configurations = f"{num_assets} assets | {N} steps | {batch_size} batch size | {n_iter} iterations | {degree} degree | {rank} rank"
 
 # Compute trajectories
-X, noise = generate_trajectories(X0, T, N, model) # (batch_size, N + 1, dim), (batch_size, N + 1, dim) (xi[0] is not used)
+X, noise = generate_trajectories(X0, N, model) # (batch_size, N + 1, dim), (batch_size, N + 1, dim) (xi[0] is not used)
 
 phi_X = []
 dphi_X = []
@@ -103,14 +99,13 @@ for n in range(N - 1, -1, -1):
         Z_nk = xp.einsum('ijk, ik -> ij', sigma_nk, grand_Vnk) # (batch_size, num_assets)
         h_nk = model.h(X_n, n*dt, Y_nk, Z_nk)
 
-        # print(Z_nk.shape)
-        # print(model.sigma(X_n, n*dt).shape)
-        # print((xp.sum(Z_nk * model.sigma(X_n, n*dt) * noise[:, n+1], axis=1)).shape)
-        # print(V_n1)
-        # print(h_nk)
         step_nk = h_nk*dt + Y_n1 - xp.sqrt(dt) * xp.einsum('ij,ij->i', Z_nk, noise_n1)
 
-        V_nk = ALS(phi_X_n, step_nk, n_iter=n_iter, ranks=ranks, init_tt=V_nk)
+        # V_nk = ALS(phi_X_n, step_nk, n_iter=n_iter, ranks=ranks, init_tt=V_nk)
+        if n == 0:
+            Vnk = SALSA(phi_X_n, step_nk, n_iter=n_iter, ranks=ranks, init_tt=V_nk, max_rank=degree, do_reg=False)
+        else:
+            V_nk = SALSA(phi_X_n, step_nk, n_iter=n_iter, ranks=ranks, init_tt=V_nk, max_rank=degree)
         Y_nk = fast_contract(V_nk, phi_X_n)
 
     V[n] = V_nk
@@ -135,7 +130,7 @@ ground_truth = model.price(xo[None, :], 0, n_sims=50_000).item()
 print(f"Predicted price at 0: {Y[0, 0]:.4f} | Ground price at 0: {ground_truth:.4f}")
 
 error = xp.abs(Y[0, 0] - ground_truth)
-print(f"Error at 0: {error:.2e} | Relative error at 0: {error / ground_truth:.2e}")
+print(f"Error at 0: {error:.2e} | Relative error at 0: {error / ground_truth:.2e} | Relative error at 0: {error / ground_truth:.2%}")
 
 plt.figure(figsize=(10, 5))
 n_simulations = 3
