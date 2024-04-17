@@ -69,8 +69,8 @@ if __name__ == "__main__":
 
     result_dict = {}
 
-    n_assets = [2, 3, 4, 5, 8, 10, 15, 20, 25, 30, 35, 40, 45, 50]
-    batch_sizes = [1000]
+    n_assets = [20]#[2, 3, 4, 5, 8, 10, 15, 20, 25, 30, 35, 40, 45, 50]
+    batch_sizes = [10, 50, 100, 500, 1000, 5000, 10000]
     # degrees = [1, 2, 3, 4, 5]
     degrees = [2]
     n_iters = [25]  # [1, 10, 25, 50, 100, 250, 500]#
@@ -111,9 +111,11 @@ if __name__ == "__main__":
         "SALSA": "red",
     }
     for algo_name, errors in algo_errors.items():
-        plt.plot(n_assets, errors, label=algo_name, color=algo_colors[algo_name], marker="o", linestyle="-", lw=0.8)
+        # plt.plot(n_assets, errors, label=algo_name, color=algo_colors[algo_name], marker="o", linestyle="-", lw=0.8)
+        # plt.plot(n_iters, errors, label=algo_name, color=algo_colors[algo_name], marker="o", linestyle="-", lw=0.8)
+        plt.plot(batch_sizes, errors, label=algo_name, color=algo_colors[algo_name], marker="o", linestyle="-", lw=0.8)
 
-    plt.xlabel("Number of assets")
+    plt.xlabel("Batch size")
     plt.ylabel("L2 error")
     plt.legend()
     plt.show()

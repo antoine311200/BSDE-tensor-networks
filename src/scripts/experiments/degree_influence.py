@@ -89,19 +89,19 @@ if __name__ == "__main__":
         print('~'*50)
         print(f"n_asset: {n_asset}, batch_size: {batch_size}, degree: {degree}")
 
-        # algo = partial(
-        #     ALS,
-        #     n_iter=n_iter,
-        #     ranks=(1, ) + (rank,) * (n_asset - 1) + (1, ),
-        #     optimizer="lstsq",
-        # )
         algo = partial(
-            SALSA,
+            ALS,
             n_iter=n_iter,
             ranks=(1, ) + (rank,) * (n_asset - 1) + (1, ),
-            max_rank=2,
             optimizer="lstsq",
         )
+        # algo = partial(
+        #     SALSA,
+        #     n_iter=n_iter,
+        #     ranks=(1, ) + (rank,) * (n_asset - 1) + (1, ),
+        #     max_rank=2,
+        #     optimizer="lstsq",
+        # )
 
         X, Y = initialize(n_asset, batch_size, degree, func)
         A, result, l2, l1 = run(X, Y, algo)
