@@ -3,13 +3,7 @@ from bsde_solver.core.tensor.tensor_train import TensorTrain, left_unfold, right
 from bsde_solver.core.tensor.tensor_core import TensorCore
 from bsde_solver.core.tensor.tensor_network import TensorNetwork
 
-import numpy as np
-import time
-
-
-def retraction(tt, j):
-    return tt.extract([f"core_{i}" for i in range(tt.order) if i != j])
-
+from bsde_solver import xp
 
 def retraction_operator(tt, phis, j):
     results = []
@@ -20,9 +14,9 @@ def retraction_operator(tt, phis, j):
             result = TensorNetwork(
                 cores=[core, phi], names=[f"core_{i}", f"phi_{i}"]
             )
-            # print("R", result)
-            result = result.contract(indices=("batch", f"r_{i}", f"r_{i+1}"))#, f"m_{i+1}"
+            result = result.contract(indices=("batch", f"r_{i}", f"r_{i+1}"))
         results.append(result)
+
 
     V = TensorNetwork(cores=results, names=[f"V_{i}" for i in range(len(phis.cores))])
     V = V.contract(batch=True, indices=(f"r_{j}", f"m_{j+1}", f"r_{j+1}"))
@@ -44,7 +38,7 @@ def ALS(
     tt.orthonormalize(mode="right", start=1)
 
     phis = TensorNetwork(cores=phis)
-    result = TensorCore(np.array(result), name="result", indices=("batch",))
+    result = TensorCore(xp.array(result), name="result", indices=("batch",))
 
     def micro_optimization(tt, j):
         V = retraction_operator(tt, phis, j)
@@ -72,10 +66,10 @@ def ALS(
             core_curr = tt.cores[f"core_{j}"]
             core_next = tt.cores[f"core_{j+1}"]
 
-            L = left_unfold(V).view(np.ndarray)
-            R = right_unfold(core_next).view(np.ndarray)
+            L = left_unfold(V).view(xp.ndarray)
+            R = right_unfold(core_next).view(xp.ndarray)
 
-            Q, S = np.linalg.qr(L)
+            Q, S = xp.linalg.qr(L)
             W = S @ R
 
             tt.cores[f"core_{j}"] = TensorCore.like(Q, core_curr)
@@ -89,10 +83,10 @@ def ALS(
             core_prev = tt.cores[f"core_{j-1}"]
             core_curr = tt.cores[f"core_{j}"]
 
-            L = left_unfold(core_prev).view(np.ndarray)
-            R = right_unfold(V).view(np.ndarray)
+            L = left_unfold(core_prev).view(xp.ndarray)
+            R = right_unfold(V).view(xp.ndarray)
 
-            Q, S = np.linalg.qr(R.T)
+            Q, S = xp.linalg.qr(R.T)
             W = L @ S.T
 
             tt.cores[f"core_{j-1}"] = TensorCore.like(W, core_prev)
@@ -113,17 +107,18 @@ def SALSA(
     max_rank=10,
     optimizer="lstsq",
 ):
+
     shape = tuple([phi.shape[1] for phi in phis])
 
     tt = init_tt if init_tt else TensorTrain(shape, ranks)  # .randomize()
     tt.randomize()
 
     phis = TensorNetwork(cores=phis)
-    result = TensorCore(np.array(result), name="result", indices=("batch",))
+    result = TensorCore(xp.array(result), name="result", indices=("batch",))
 
     eta = 1e-6
-    max_ranks = [np.minimum(tt.ranks[i] * tt.shape[i], max_rank) for i in range(tt.order - 1)]
-    max_ranks[-1] = np.minimum(tt.ranks[-1] * tt.shape[-1], max_rank)
+    max_ranks = [xp.minimum(tt.ranks[i] * tt.shape[i], max_rank) for i in range(tt.order - 1)]
+    max_ranks[-1] = xp.minimum(tt.ranks[-1] * tt.shape[-1], max_rank)
 
     def micro_optimization(tt, phis, result, j, gamma, theta, eta, start=False):
         V = retraction_operator(tt, phis, j)
@@ -131,9 +126,9 @@ def SALSA(
         R = V.copy()
 
         core_shape = [
-            V.size(f"r_{j}"),
-            V.size(f"m_{j+1}"),
-            V.size(f"r_{j+1}"),
+            V.size_at(f"r_{j}"),
+            V.size_at(f"m_{j+1}"),
+            V.size_at(f"r_{j+1}"),
         ]
         axes = (f"r_{j}", f"m_{j+1}", f"r_{j+1}")
         axes_T = (f"s_{j}", f"n_{j+1}", f"s_{j+1}")
@@ -143,27 +138,27 @@ def SALSA(
         V = V.unfold("batch", axes)
 
         # The operator A can be non invertible, so we need to use some regularization
-        reg_term = np.zeros_like(A.view(np.ndarray))
+        reg_term = xp.zeros_like(A.view(xp.ndarray))
         if gamma is not None and theta is not None:
             if j != 0:
                 # print("Gamma:", gamma.shape)
                 # print(core_shape)
-                reg_term += eta**2 * np.einsum(
+                reg_term += eta**2 * xp.einsum(
                     "ab,bc,ij,kl->aikcjl",
                     gamma,
                     gamma,
-                    np.eye(core_shape[1]),
-                    np.eye(core_shape[2]),
+                    xp.eye(core_shape[1]),
+                    xp.eye(core_shape[2]),
                 ).reshape(A.shape_info)
             if j != tt.order - 1:
                 # print("Theta:", theta.shape)
                 # print(core_shape)
-                reg_term += eta**2 * np.einsum(
+                reg_term += eta**2 * xp.einsum(
                     "ab,bc,ij,kl->aikcjl",
                     theta,
                     theta,
-                    np.eye(core_shape[1]),
-                    np.eye(core_shape[0]),
+                    xp.eye(core_shape[1]),
+                    xp.eye(core_shape[0]),
                 ).reshape(A.shape_info)
 
         A += reg_term
@@ -171,10 +166,10 @@ def SALSA(
         if j == 0 and start:
             axes = (f"r_{j}", f"m_{j+1}", f"r_{j+1}")
             last_core = tt.cores[f"core_{j}"].copy().unfold(axes)
-            eval = TensorNetwork(cores=[V, last_core], names=["V", f"core_{j}"]).contract().view(np.ndarray)
-            eta = min(1/V.size("batch") * np.linalg.norm(eval - result)**2, 10000)
+            eval = TensorNetwork(cores=[V, last_core], names=["V", f"core_{j}"]).contract().view(xp.ndarray)
+            eta = min(1/V.size_at("batch") * xp.linalg.norm(eval - result)**2, 10000)
 
-        A += eta * np.eye(A.shape[0])
+        A += eta * xp.eye(A.shape[0])
         Y = TensorNetwork(cores=[V, result], names=["V", "result"]).contract()
 
         X = solver(A, Y, optimizer)
@@ -182,30 +177,30 @@ def SALSA(
         return X, V, R, eta
 
     def rank_adaptation(U, S, V, min_sv, j):
-        S = np.append(S, 0.01 * min_sv)
+        S = xp.append(S, 0.01 * min_sv)
 
-        U = TensorCore.like(U, tt.cores[f"core_{j-1}"]).view(np.ndarray)
-        U_comp = np.ones((U.shape[0], U.shape[1]))
-        U_comp -= np.einsum("abc,dec,de->ab", U, U, U_comp)
-        U_comp -= np.einsum("abc,dec,de->ab", U, U, U_comp)
-        U_norm = np.linalg.norm(U_comp)
+        U = TensorCore.like(U, tt.cores[f"core_{j-1}"]).view(xp.ndarray)
+        U_comp = xp.ones((U.shape[0], U.shape[1]))
+        U_comp -= xp.einsum("abc,dec,de->ab", U, U, U_comp)
+        U_comp -= xp.einsum("abc,dec,de->ab", U, U, U_comp)
+        U_norm = xp.linalg.norm(U_comp)
         if U_norm != 0:
             U_comp /= U_norm
-            U = np.concatenate((U, U_comp[:, :, None]), axis=2)
+            U = xp.concatenate((U, U_comp[:, :, None]), axis=2)
 
-        V = TensorCore.like(V, tt.cores[f"core_{j}"]).view(np.ndarray)
-        V_comp = np.ones((V.shape[1], V.shape[2]))
-        V_comp -= np.einsum("abc,ade,de->bc", V, V, V_comp)
-        V_comp -= np.einsum("abc,ade,de->bc", V, V, V_comp)
-        V_norm = np.linalg.norm(V_comp)
+        V = TensorCore.like(V, tt.cores[f"core_{j}"]).view(xp.ndarray)
+        V_comp = xp.ones((V.shape[1], V.shape[2]))
+        V_comp -= xp.einsum("abc,ade,de->bc", V, V, V_comp)
+        V_comp -= xp.einsum("abc,ade,de->bc", V, V, V_comp)
+        V_norm = xp.linalg.norm(V_comp)
         if V_norm != 0:
             V_comp /= V_norm
-            V = np.concatenate((V, V_comp[None, :, :]), axis=0)
+            V = xp.concatenate((V, V_comp[None, :, :]), axis=0)
 
         core_prev = TensorCore.dummy(U.shape, indices=tt.cores[f"core_{j-1}"].indices)
         core_curr = TensorCore.dummy(V.shape, indices=tt.cores[f"core_{j}"].indices)
 
-        W = np.diag(S) @ V.reshape((V.shape[0], -1))
+        W = xp.diag(S) @ V.reshape((V.shape[0], -1))
 
         return U, S, W, core_prev, core_curr
 
@@ -240,10 +235,10 @@ def SALSA(
                 core_curr = tt.cores[f"core_{j}"]
                 core_prev = tt.cores[f"core_{j-1}"]
 
-                L = left_unfold(core_prev).view(np.ndarray)
-                R = right_unfold(core_curr).view(np.ndarray)
+                L = left_unfold(core_prev).view(xp.ndarray)
+                R = right_unfold(core_curr).view(xp.ndarray)
 
-                U, S, V = np.linalg.svd(L, full_matrices=False)
+                U, S, V = xp.linalg.svd(L, full_matrices=False)
                 W = S * V @ R
                 if expand_rank and S[-1] > min_sv and S.shape[0] < max_ranks[j-1]:
                     # print("Rank adaptation")
@@ -256,30 +251,30 @@ def SALSA(
                 tt.cores[f"core_{j-1}"] = TensorCore.like(U, core_prev)
                 tt.cores[f"core_{j}"] = TensorCore.like(W, core_curr)
 
-                gamma = np.diag(np.nan_to_num(1 / np.maximum(S, min_sv), posinf=1e-6, neginf=1e-6))
-                # print(np.diagonal(gamma))
+                gamma = xp.diag(xp.nan_to_num(1 / xp.maximum(S, min_sv), posinf=1e-6, neginf=1e-6))
+                # print(xp.diagonal(gamma))
 
-                # print("Gamma:", 1 / np.maximum(S, min_sv), S)
+                # print("Gamma:", 1 / xp.maximum(S, min_sv), S)
             if j != tt.order - 1:
                 core_curr = tt.cores[f"core_{j}"]
                 core_next = tt.cores[f"core_{j+1}"]
 
-                L = left_unfold(core_curr).view(np.ndarray)
-                R = right_unfold(core_next).view(np.ndarray)
+                L = left_unfold(core_curr).view(xp.ndarray)
+                R = right_unfold(core_next).view(xp.ndarray)
 
-                U, S, V = np.linalg.svd(L, full_matrices=False)
+                U, S, V = xp.linalg.svd(L, full_matrices=False)
                 W = U * S
                 Z = V @ R
 
                 tt.cores[f"core_{j}"] = TensorCore.like(W, core_curr)
                 tt.cores[f"core_{j+1}"] = TensorCore.like(Z, core_next)
-                theta = np.diag(np.nan_to_num(1 / np.maximum(S, min_sv), posinf=1e-6, neginf=1e-6))
+                theta = xp.diag(xp.nan_to_num(1 / xp.maximum(S, min_sv), posinf=1e-6, neginf=1e-6))
 
-                # print("Theta:", 1 / np.maximum(S, min_sv), S)
+                # print("Theta:", 1 / xp.maximum(S, min_sv), S)
 
-                # print("Theta:", 1 / np.maximum(S, min_sv), S)
+                # print("Theta:", 1 / xp.maximum(S, min_sv), S)
 
-                # print(np.diagonal(theta))
+                # print(xp.diagonal(theta))
 
             X, V, R, eta = micro_optimization(
                 tt, phis, result, j, gamma, theta, eta, start=(it == 0)
@@ -289,12 +284,12 @@ def SALSA(
         axes = (f"r_{j}", f"m_{j+1}", f"r_{j+1}")
         last_core = tt.cores[f"core_{j}"].copy().unfold(axes)
 
-        eval = TensorNetwork(cores=[V, last_core], names=["V", f"core_{j}"]).contract().view(np.ndarray)
+        eval = TensorNetwork(cores=[V, last_core], names=["V", f"core_{j}"]).contract().view(xp.ndarray)
         eta_tmp = eta
-        eta = 1/V.size("batch") * np.linalg.norm(eval - result)**2
+        eta = 1/V.size_at("batch") * xp.linalg.norm(eval - result)**2
         rel_eta = abs(eta_tmp - eta) / eta_tmp
-        # const = TensorNetwork(cores=[R, X], names=["R", "X"]).contract().view(np.ndarray)
-        omega = min(omega / freq_omega, max(eta, np.sqrt(eta)))
+        # const = TensorNetwork(cores=[R, X], names=["R", "X"]).contract().view(xp.ndarray)
+        omega = min(omega / freq_omega, max(eta, xp.sqrt(eta)))
         omega = max(omega, rel_eta)
         min_sv = max(min(0.2*omega, 0.2*rel_eta), 0)
 

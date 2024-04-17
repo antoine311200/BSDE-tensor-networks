@@ -1,10 +1,10 @@
 from bsde_solver.core.tensor.tensor_train import TensorTrain
 from bsde_solver.utils import matricized
 
-import numpy as np
+from bsde_solver import xp
 
-np.set_printoptions(precision=2)
-np.set_printoptions(suppress=True)
+xp.set_printoptions(precision=2)
+xp.set_printoptions(suppress=True)
 
 if __name__ == "__main__":
 

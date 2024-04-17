@@ -1,4 +1,4 @@
-import numpy as np
+from bsde_solver import xp
 
 from bsde_solver.bsde import BackwardSDE, HJB
 from bsde_solver.stochastic.path import generate_trajectories
@@ -6,7 +6,7 @@ from bsde_solver.stochastic.path import generate_trajectories
 import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
-    X0 = np.array([1, 3, 2])
+    X0 = xp.array([1, 3, 2])
     delta_t = 0.01
     T = 1
     N = int(T / delta_t)
@@ -19,7 +19,7 @@ if __name__ == "__main__":
     plt.figure(figsize=(8, 8), dpi=100)
 
     colormap = plt.cm.viridis
-    time_range = np.linspace(0, T, N + 1)
+    time_range = xp.linspace(0, T, N + 1)
 
     for i in range(batch_size):
         plt.subplot(batch_size, 1, i + 1)
