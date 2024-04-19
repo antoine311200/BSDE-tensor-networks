@@ -12,7 +12,7 @@ from bsde_solver.core.tensor.tensor_train import BatchTensorTrain
 from bsde_solver.core.tensor.tensor_core import TensorCore
 from bsde_solver.core.calculus.derivative import batch_derivative, multi_derivative
 from bsde_solver.core.calculus.hessian import hessian
-from bsde_solver.core.optimisation.als import ALS, ALS_regularized
+from bsde_solver.core.optimisation.als import ALS, SALSA
 from bsde_solver.core.optimisation.mals import MALS
 from bsde_solver.core.calculus.basis import LegendreBasis, PolynomialBasis
 from bsde_solver.loss import PDELoss
@@ -22,22 +22,23 @@ import time
 profiler = cProfile.Profile()
 profiler.enable()
 
-mode = "MALS"
+mode = "SALSA"
+# mode = "ALS"
 if mode == "ALS":
     optimizer = ALS
 elif mode == "SALSA":
-    optimizer = ALS_regularized
+    optimizer = partial(SALSA, max_rank=5, optimizer="lstsq")
 elif mode == "MALS":
     optimizer = partial(MALS, threshold=1e-3)
 
 batch_size = 2000
 T = 1
-N = 10
-num_assets = 6
+N = 50
+num_assets = 4
 dt = T / N
 
-n_iter = 20
-rank = 3
+n_iter = 10
+rank = 2
 degree = 3
 shape = tuple([degree for _ in range(num_assets)])
 ranks = (1,) + (rank,) * (num_assets - 1) + (1,)
@@ -93,9 +94,6 @@ check_V = fast_contract(V_N, phi_X[-1]).view(np.ndarray).squeeze()
 print("Mean reconstruction error at N:", f"{np.abs(np.mean(check_V - Y[:, -1])):.2e}")
 print("Prediction at N:", f"{np.mean(Y[:, -1]):.4f} | Value at N:", f"{np.mean(check_V):.4f}")
 
-import sys
-sys.exit()
-
 print("Compute true prices")
 prices = []
 
@@ -133,6 +131,8 @@ for n in range(N - 1, -1, -1):
 
     step_n1 = h_n1*dt + Y_n1 #- np.einsum('ij,ij->i', Z_n1, noise) * np.sqrt(dt)
     # np.sum(Z_n1 @ model.sigma(X_n1, (n+1) *dt) * noise, axis=1) * np.sqrt(dt) + Y_n1
+    if n == 0 and mode == "SALSA":
+        optimizer = partial(optimizer, do_reg=False)
     V_n = optimizer(phi_X_n, step_n1, n_iter=n_iter, ranks=ranks, init_tt=V_n1)
     V[n] = V_n
     Y_n = fast_contract(V_n, phi_X_n)
@@ -188,6 +188,7 @@ for j in range(len(simulation_indices)):
     plt.plot(predicted_prices, label=f"Price #{j}", linestyle="--", color=colormap(j / n_simulations), lw=0.8)
     plt.plot(ground_prices, label=f"Ground Price #{j}", linestyle="-", color=colormap(j / n_simulations), lw=0.8)
 
+plt.show()
 # plt.scatter([0], [np.mean(Y[:, 0])], color="red", label="Predicted Price at 0", marker="x")
 # plt.scatter([0], [np.mean(model.price(X0_batch, 0))], color="red", label="Ground Price at 0", marker="o")
 # plt.xlabel("Time")

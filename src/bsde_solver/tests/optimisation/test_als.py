@@ -1,15 +1,37 @@
 from bsde_solver.core.tensor.tensor_core import TensorCore
 from bsde_solver.core.tensor.tensor_network import TensorNetwork
-from bsde_solver.core.optimisation.als import ALS, ALS_regularized
+from bsde_solver.core.optimisation.als import ALS, SALSA
 from bsde_solver.core.optimisation.mals import MALS
 from bsde_solver.utils import fast_contract
 
 import numpy as np
 from time import perf_counter
+from functools import partial
+
+def run(phis, b, algo):
+    start_time_batch = perf_counter()
+    # ALS_result = SALSA(phis, b, n_iter=25, ranks=ranks)
+    # ALS_result = ALS(phis, b, n_iter=25, ranks=ranks)
+    # ALS_result = MALS(phis, b, n_iter=50, ranks=ranks, threshold=1e-6, max_rank=10)
+    ALS_result = algo(phis, b)
+    # ALS_result = ALS(phis, b, n_iter=50, ranks=ranks)
+    end_time_batch = perf_counter() - start_time_batch
+    print("Time:", end_time_batch)
+
+    batch_phis = TensorNetwork(cores=phis)
+    result = fast_contract(ALS_result, batch_phis).view(np.ndarray).squeeze()
+
+    l2 = np.linalg.norm(result - b)
+    l1 = np.linalg.norm(result - b, ord=1)
+    print("Reconstruction error (total)   L2:", round(l2, 4), "   L1:", round(l1, 4))
+    print("Mean reconstruction error ", round(np.mean(np.abs(result - b)), 4))
+    print("Maximum reconstruction error:", round(np.max(np.abs(result - b)), 4))
+    print("Ground truth samples:", [round(c, 3) for c in b[:10]])
+    print("Reconstruction samples:", [round(c, 3) for c in result[:10]])
 
 if __name__ == "__main__":
 
-    seed = 210
+    seed = 216540
     degree = 3
     num_assets = 6
 
@@ -41,27 +63,6 @@ if __name__ == "__main__":
     b = np.linalg.norm(np.array(xs), axis=1) ** 2
     # b = np.log(1/2+1/2*np.linalg.norm(np.array(xs)**2, axis=1))
 
-    #################### Single ALS ####################
-
-    # print("Start Single Start")
-    # start_time = perf_counter()
-    # min_tt = []
-    # for i in range(n_simulations):
-    #     new_tt = scalar_ALS(phis[i], result=b[i], n_iter=25, ranks=ranks)
-    #     min_tt.append(new_tt)
-
-    # end_time = perf_counter() - start_time
-    # print("Time:", end_time)
-
-    # results = []
-    # for i in range(n_simulations):
-    #     result = TensorNetwork(cores=[min_tt[i]]+phis[i], names=["tt"]+[f"phi_{i+1}" for i in range(num_assets)]).contract().view(np.ndarray).squeeze()
-    #     results.append(float(result))
-
-    # print("Reconstruction error (batch):", np.linalg.norm(results - b))
-    # print("Mean reconstruction error (batch):", np.mean(np.abs(results - b)))
-    # print("Max reconstruction error (batch):", np.max(np.abs(results - b)))
-
     #################### Batch ALS ####################
 
     phis, dphis = [], []
@@ -81,21 +82,76 @@ if __name__ == "__main__":
     dphis = [TensorCore(dphis[i], name=f"dphi_{i+1}", indices=("batch", f"m_{i+1}")) for i in range(num_assets)]
 
     print(f"Alternating Least Squares (n_simulations={n_simulations}, degree={degree}, num_assets={num_assets}, ranks={dim})")
-    start_time_batch = perf_counter()
-    # ALS_result = ALS_regularized(phis, b, n_iter=25, ranks=ranks)
-    # ALS_result = ALS(phis, b, n_iter=25, ranks=ranks)
-    ALS_result = MALS(phis, b, n_iter=50, ranks=ranks, threshold=1e-6, max_rank=10)
-    # ALS_result = ALS(phis, b, n_iter=50, ranks=ranks)
-    end_time_batch = perf_counter() - start_time_batch
-    print("Time:", end_time_batch)
 
-    batch_phis = TensorNetwork(cores=phis)
-    result = fast_contract(ALS_result, batch_phis).view(np.ndarray).squeeze()
 
-    l2 = np.linalg.norm(result - b)
-    l1 = np.linalg.norm(result - b, ord=1)
-    print("Reconstruction error (total)   L2:", round(l2, 4), "   L1:", round(l1, 4))
-    print("Mean reconstruction error ", round(np.mean(np.abs(result - b)), 4))
-    print("Maximum reconstruction error:", round(np.max(np.abs(result - b)), 4))
-    print("Ground truth samples:", [round(c, 3) for c in b[:10]])
-    print("Reconstruction samples:", [round(c, 3) for c in result[:10]])
+    ########################
+
+    print(f"Run ALS with LSTSQ optimization")
+    run(phis, b, partial(
+        ALS,
+        n_iter=10,
+        ranks=ranks,
+        optimizer="lstsq",
+    ))
+
+    # print(f"Run ALS with LSTSQ optimization")
+    # run(phis, b, partial(
+    #     MALS,
+    #     n_iter=10,
+    #     ranks=ranks,
+    #     threshold=1e-8,
+    #     optimizer="lstsq",
+    # ))
+
+
+    print(f"Run SALSA with LSTSQ optimization")
+    run(phis, b, partial(
+        SALSA,
+        n_iter=10,
+        ranks=ranks,
+        max_rank=5,
+    ))
+
+    # print(f"Run ALS with LU optimization")
+    # run(phis, b, partial(
+    #     ALS,
+    #     n_iter=10,
+    #     ranks=ranks,
+    #     optimizer="lu",
+    # ))
+
+    # print(f"Run ALS with solve optimization")
+    # run(phis, b, partial(
+    #     ALS,
+    #     n_iter=10,
+    #     ranks=ranks,
+    #     optimizer="solve",
+    # ))
+
+    # print(f"Run MALS with LSTSQ optimization")
+    # run(phis, b, partial(
+    #     MALS,
+    #     n_iter=100,
+    #     ranks=ranks,
+    #     threshold=1e-8,
+    #     max_rank=2,
+    #     optimizer="lstsq",
+    # ))
+
+    # run(phis, b, partial(
+    #     MALS,
+    #     n_iter=10,
+    #     ranks=ranks,
+    #     threshold=1e-2,
+    #     max_rank=5,
+    #     optimizer="qr",
+    # ))
+
+    # run(phis, b, partial(
+    #     MALS,
+    #     n_iter=10,
+    #     ranks=ranks,
+    #     threshold=1e-2,
+    #     max_rank=5,
+    #     optimizer="solve",
+    # ))

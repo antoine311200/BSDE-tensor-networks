@@ -49,8 +49,8 @@ class TensorCore(np.ndarray):
     def dummy(shape_info, indices=None, name=None):
         return TensorCore(np.zeros(shape_info), indices=indices, name=name)
 
-    def like(input_array, like_core: 'TensorCore' = None, name=None):
-        return TensorCore(input_array.reshape(like_core.shape),
+    def like(input_array, like_core: 'TensorCore' = None, name=None, order=None):
+        return TensorCore(input_array.reshape(like_core.shape, order=order),
             indices=like_core.indices, name=like_core.name if name is None else name
         )
 
