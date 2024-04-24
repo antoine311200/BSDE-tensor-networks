@@ -54,7 +54,7 @@ Y[:, -1] = model.g(X[:, -1])  # (batch_size, )
 
 start_time = time.perf_counter()
 V = [None for _ in range(N + 1)]
-V_N = ALS(phi_X[-1], Y[:, -1], n_iter=n_iter, ranks=ranks)
+V_N = SALSA(phi_X[-1], Y[:, -1], n_iter=n_iter, ranks=ranks)
 V[-1] = V_N
 print("Time to compute V_N:", f"{time.perf_counter() - start_time:.2f}s")
 
@@ -81,9 +81,9 @@ for n in range(N - 1, -1, -1):
     V_n1 = V[n + 1]
     Y_n1 = Y[:, n + 1]  # (batch_size, )
 
-    X_n1 = X[:, n + 1, :]  # (batch_size, num_assets)
-    phi_X_n1 = phi_X[n+1]  # tensor core of shape (batch_size, degree) * num_assets
-    dphi_X_n1 = dphi_X[n+1]  # tensor core of shape (batch_size, degree) * num_assets
+    # X_n1 = X[:, n + 1, :]  # (batch_size, num_assets)
+    # phi_X_n1 = phi_X[n+1]  # tensor core of shape (batch_size, degree) * num_assets
+    # dphi_X_n1 = dphi_X[n+1]  # tensor core of shape (batch_size, degree) * num_assets
 
     X_n = X[:, n, :]  # (batch_size, num_assets)
     phi_X_n = phi_X[n]  # tensor core of shape (batch_size, degree) * num_assets
@@ -117,7 +117,7 @@ for n in range(N - 1, -1, -1):
     print("Mean reconstruction error at n:", f"{xp.mean(xp.abs(Y_nk - ground_prices)):.2e}, Max reconstruction error at n:", f"{xp.max(xp.abs(Y_nk - ground_prices)):.2e}")
     print("Step time:", f"{time.perf_counter() - step_start_time:.2f}s\n")
 
-    relative_errors = xp.abs(Y_nk - ground_prices) / ground_prices
+    relative_errors = xp.abs((Y_nk - ground_prices) / ground_prices)
     mean_relative_errors.append(xp.mean(relative_errors))
     max_relative_errors.append(xp.max(relative_errors))
 

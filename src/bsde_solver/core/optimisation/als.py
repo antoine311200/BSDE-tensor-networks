@@ -33,13 +33,8 @@ def ALS(
 ):
     shape = tuple([phi.shape[1] for phi in phis])
 
-    # tt = init_tt if init_tt else TensorTrain(shape, ranks)
-    # tt.randomize()
-    if init_tt is None:
-        tt = TensorTrain(shape, ranks)
-        tt.randomize()
-    else:
-        tt = init_tt
+    tt = init_tt if init_tt else TensorTrain(shape, ranks)
+    tt.randomize()
 
     tt.orthonormalize(mode="right", start=1)
 

@@ -11,7 +11,7 @@ from bsde_solver.core.tensor.tensor_network import TensorNetwork
 from bsde_solver.core.tensor.tensor_core import TensorCore
 from bsde_solver.core.calculus.derivative import multi_derivative
 from bsde_solver.core.calculus.hessian import hessian
-from bsde_solver.core.optimisation.als import ALS
+from bsde_solver.core.optimisation.als import ALS, SALSA
 from bsde_solver.core.optimisation.mals import MALS
 from bsde_solver.core.calculus.basis import LegendreBasis, PolynomialBasis
 from bsde_solver.loss import PDELoss
@@ -21,27 +21,27 @@ import time
 
 batch_size = 2000
 T = 1
-N = 10
+N = 100
 num_assets = 4
 dt = T / N
 
 n_iter = 20
 rank = 3
-degree = 2
+degree = 3
 shape = tuple([degree for _ in range(num_assets)])
 ranks = (1,) + (rank,) * (num_assets - 1) + (1,)
 solver = "als"
 
 basis = PolynomialBasis(degree)
 
-xo = xp.zeros(num_assets)
-# xo = xp.array(flatten([(.5, 2.) for _ in range(num_assets//2)])) # Black-Scholes initial condition
+# xo = xp.zeros(num_assets)
+xo = xp.array(flatten([(.5, 2.) for _ in range(num_assets//2)])) # Black-Scholes initial condition
 X0 = xp.tile(xo, (batch_size, 1))
 
-model = HJB(X0=X0, delta_t=dt, T=T, sigma=xp.sqrt(2))
+# model = HJB(X0=X0, delta_t=dt, T=T, sigma=xp.sqrt(2))
 sigma = 0.4
 r = 0.05
-# model = BlackScholes(X0, dt, T, r, sigma)
+model = BlackScholes(X0, dt, T, r, sigma)
 configurations = f"{num_assets} assets | {N} steps | {batch_size} batch size | {n_iter} iterations | {degree} degree | {rank} rank"
 
 # solver
@@ -116,7 +116,8 @@ for n in range(N - 1, -1, -1):
     h_n1 = model.h(X_n1, (n+1) * dt, Y_n1, Z_n1)  # (batch_size, )
 
     step_n1 = h_n1*dt + Y_n1 # (batch_size, )
-    V_n = ALS(phi_X_n, step_n1, n_iter=n_iter, ranks=ranks, init_tt=V_n1)
+    # V_n = ALS(phi_X_n, step_n1, n_iter=n_iter, ranks=ranks, init_tt=V_n1)
+    V_n = SALSA(phi_X_n, step_n1, n_iter=n_iter, ranks=ranks, max_rank=degree, init_tt=V_n1)
     V[n] = V_n
     Y_n = fast_contract(V_n, phi_X_n)
 
