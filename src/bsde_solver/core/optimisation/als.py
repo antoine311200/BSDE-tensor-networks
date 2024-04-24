@@ -107,7 +107,7 @@ def SALSA(
     init_tt=None,
     max_rank=10,
     optimizer="lstsq",
-    do_reg=True,
+    do_reg: bool = True
 ):
 
     shape = tuple([phi.shape[1] for phi in phis])

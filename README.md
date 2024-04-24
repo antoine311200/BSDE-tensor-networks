@@ -1,1 +1,1 @@
-# BSDE-tensor-networks
+# Parabolic PDEs resolution in high dimensions using Tensor Trains and Backward Stochastic Differential Equations
