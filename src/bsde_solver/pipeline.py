@@ -1,4 +1,5 @@
-import numpy as np
+# import numpy as np
+from bsde_solver import xp as np
 import cProfile
 from pstats import Stats
 from functools import partial
@@ -38,7 +39,7 @@ num_assets = 4
 dt = T / N
 
 n_iter = 10
-rank = 2
+rank = 3
 degree = 3
 shape = tuple([degree for _ in range(num_assets)])
 ranks = (1,) + (rank,) * (num_assets - 1) + (1,)
